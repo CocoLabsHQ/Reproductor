@@ -6,7 +6,7 @@
 
 <p align="center">
   Un reproductor de música y multimedia para Android: ligero, bonito y sin anuncios.<br>
-  <b>Sin publicidad · Sin rastreadores · Sin permiso de Internet · 100 % offline</b>
+  <b>Sin publicidad · Sin rastreadores · La música funciona 100 % offline</b>
 </p>
 
 ---
@@ -15,7 +15,7 @@
 
 **Reproductor** es una app Android nativa (Kotlin + Jetpack Compose) que reproduce la música, los videos y los GIF que ya tienes en tu teléfono. Su identidad visual sale de su mascota, el gallo con auriculares: turquesa y cian de fondo, rojo gallo para los botones principales y naranja y amarillo para los detalles.
 
-> Versión 1.0.0. Primera versión pública: el código compila y se genera el APK automáticamente, pero se está probando en dispositivos reales. Si encuentras un fallo, abre un *issue*.
+> Versión 1.2.0. Primera versión pública: el código compila y se genera el APK automáticamente, pero se está probando en dispositivos reales. Si encuentras un fallo, abre un *issue*.
 
 ## Funciones
 
@@ -37,6 +37,7 @@
 - Crear, renombrar y eliminar playlists.
 - Añadir y quitar canciones, y **reordenarlas arrastrando**.
 - Se conservan al cerrar la app o reiniciar el teléfono.
+- **Selección múltiple:** mantén pulsada una canción y toca las demás (o usa "Todo") para añadirlas a una playlist, a la cola o quitarlas de la biblioteca de una vez.
 
 ### 🎬 Video y GIF
 - Reproductor de video integrado: reproducir/pausar, avanzar/retroceder, barra de progreso y volumen.
@@ -53,16 +54,32 @@
 - Controles en la **notificación** y en la **pantalla de bloqueo**, y compatibilidad con botones de auriculares y Bluetooth.
 - Se pausa solo si desconectas los auriculares.
 
-### 🎨 Interfaz
+### 🎨 Interfaz y estilos
 - Diseño minimalista con formas redondeadas y animaciones suaves.
-- **Modo claro, oscuro o según el sistema.**
+- **Estilos:** 9 temas prediseñados (Clásico, Atardecer, Bosque, Océano, Neón, Medianoche, Aurora, Caramelo y Menta) o **una imagen de tu galería** con ajustes de color, transparencia y desenfoque.
+- Modo claro, oscuro o según el sistema (tema Clásico).
+- La cabecera de Inicio (con el gallo) se oculta sola y combina con el tema elegido.
 - Mini reproductor persistente mientras navegas.
 - Pantallas: Inicio, Biblioteca, Playlists, Reproductor, Búsqueda y Ajustes.
 
+### 📊 Resumen de música
+- Resumen mensual de lo que escuchas: minutos, reproducciones, canciones y artistas favoritos.
+- Tras **un año de registro**, un resumen anual con diapositivas animadas al estilo "Wrapped".
+- Videoclips de tus canciones favoritas dentro de la app (solo cuando tú los pides; usa Internet).
+- El registro se guarda solo en tu teléfono.
+
+### 🔄 Actualizaciones
+- Aviso dentro de la app cuando hay una versión nueva, con su tamaño y la opción "Más tarde".
+- Tras actualizar, una ventana con las novedades.
+
+### 🙈 Ocultar audios de WhatsApp
+- Opción en Ajustes: se detectan por la carpeta de WhatsApp y por el nombre del archivo (`AUD-…-WA0001`).
+
 ## Privacidad
-- No declara el permiso de Internet: **la app no puede conectarse a ninguna red**.
 - Sin anuncios, sin SDK publicitarios, sin analíticas ni rastreadores.
-- Solo pide acceso a música, videos e imágenes (para encontrar tus archivos) y notificaciones (para los controles).
+- La música, las playlists, las letras y los resúmenes funcionan **sin conexión**.
+- Internet se usa solo en dos casos: **ver un videoclip** (cuando tú lo pides; carga YouTube dentro de la app) y **buscar actualizaciones** (consulta las Releases de GitHub; se puede desactivar en Ajustes).
+- Pide acceso a música, videos e imágenes (para encontrar tus archivos) y notificaciones (para los controles).
 
 ## Instalación
 1. Ve a **Releases** y descarga el último `app-release.apk`.
@@ -97,4 +114,12 @@ app/src/main/java/com/reproductor/app/
 - No lee letras incrustadas en las etiquetas de los archivos, solo `.lrc` y `.txt`.
 - En Android 11 o superior las letras requieren elegir una carpeta una vez.
 - La portada de la notificación puede no aparecer con algunos archivos.
-- El APK release se firma con la clave de depuración. Para publicarlo en Google Play, hay que firmarlo con tu propia clave.
+- Los videoclips se buscan en YouTube y tú eliges el resultado; la app no puede reproducir uno automáticamente.
+- Los temas prediseñados están dibujados por código (degradados y formas), no son imágenes.
+- Para publicar en Google Play hay que firmar con tu propia clave (ver abajo).
+
+## Publicar una versión (para que las apps instaladas reciban el aviso)
+1. Sube la versión en `app/build.gradle.kts` (`versionCode` y `versionName`) y escribe las novedades en `app/src/main/assets/whatsnew.txt`.
+2. `git tag v1.2.0 && git push origin v1.2.0`. GitHub compila y publica la Release con el APK.
+
+Para que las actualizaciones se puedan instalar encima de la versión anterior, el APK debe firmarse **siempre con la misma clave**: guárdala como secretos del repositorio (`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`) y conserva una copia del `.jks`.

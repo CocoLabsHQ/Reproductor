@@ -10,11 +10,13 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.reproductor.app.ui.App
 import com.reproductor.app.ui.MainViewModel
 import com.reproductor.app.ui.hasAudioPermission
 import com.reproductor.app.ui.theme.ReproductorTheme
+import com.reproductor.app.ui.theme.resolveTheme
 
 class MainActivity : ComponentActivity() {
     private val vm: MainViewModel by viewModels()
@@ -23,12 +25,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             val mode by vm.themeMode.collectAsStateWithLifecycle()
+            val prefs by vm.appearance.collectAsStateWithLifecycle()
             val systemDark = isSystemInDarkTheme()
-            val dark = when (mode) {
-                1 -> false
-                2 -> true
-                else -> systemDark
-            }
+            val theme = remember(prefs, mode, systemDark) { resolveTheme(prefs, mode, systemDark) }
+            val dark = theme.dark
             DisposableEffect(dark) {
                 enableEdgeToEdge(
                     statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark },
@@ -36,7 +36,7 @@ class MainActivity : ComponentActivity() {
                 )
                 onDispose { }
             }
-            ReproductorTheme(dark) { App(vm, dark) }
+            ReproductorTheme(theme) { App(vm) }
         }
     }
 

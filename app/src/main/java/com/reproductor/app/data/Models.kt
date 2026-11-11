@@ -6,6 +6,7 @@ import android.provider.MediaStore
 import java.text.Normalizer
 
 private val diacritics = Regex("\\p{Mn}+")
+private val waFileName = Regex("^(AUD|PTT|VN)-\\d{8}-WA\\d+", RegexOption.IGNORE_CASE)
 
 /** Minúsculas y sin acentos, para búsquedas tolerantes. */
 fun normalizeText(s: String): String =
@@ -39,6 +40,9 @@ data class Track(
 
     /** Ruta sin extensión, en minúsculas: sirve para emparejar con videos/GIF del mismo nombre. */
     val basePath: String get() = path.substringBeforeLast('.', path).lowercase()
+    /** Audio de WhatsApp: por carpeta (WhatsApp Audio, WhatsApp Voice Notes, com.whatsapp...) o por nombre (AUD-20240101-WA0001). */
+    val isWhatsApp: Boolean =
+        path.contains("whatsapp", ignoreCase = true) || waFileName.containsMatchIn(path.substringAfterLast('/'))
     val searchKey: String =
         normalizeText("$title $artist $album ${genre.orEmpty()} ${path.substringAfterLast('/')} ${path.substringBeforeLast('/', "").substringAfterLast('/')}")
 }

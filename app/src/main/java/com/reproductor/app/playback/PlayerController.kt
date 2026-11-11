@@ -2,6 +2,7 @@ package com.reproductor.app.playback
 
 import android.content.ComponentName
 import android.content.Context
+import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -15,6 +16,16 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 data class QueueEntry(val trackId: Long, val title: String, val artist: String)
+
+/** Un tramo de escucha de una canción (para los resúmenes). */
+data class ListenEvent(
+    val trackId: Long,
+    val title: String,
+    val artist: String,
+    val album: String,
+    val listenedMs: Long,
+    val isNewPlay: Boolean,
+)
 
 data class PlayerState(
     val connected: Boolean = false,
@@ -58,6 +69,42 @@ class PlayerController(private val context: Context) {
     /** Se invoca cuando empieza una pista (para el historial de reproducidas recientemente). */
     var onTrackStarted: ((Long) -> Unit)? = null
 
+    /** Se invoca cuando se escuchó una canción lo suficiente (>= 20 s) al pausar o cambiar de pista. */
+    var onListened: ((ListenEvent) -> Unit)? = null
+
+    private var prevItem: MediaItem? = null
+    private var accMs = 0L
+    private var resumedAt = 0L
+    private var counted = false
+
+    private fun tick(playingNow: Boolean) {
+        val now = SystemClock.elapsedRealtime()
+        if (resumedAt != 0L) accMs += now - resumedAt
+        resumedAt = if (playingNow) now else 0L
+    }
+
+    private fun emitListen(item: MediaItem?, ending: Boolean) {
+        val id = item?.mediaId?.toLongOrNull()
+        if (item != null && id != null && accMs >= MIN_LISTEN_MS) {
+            onListened?.invoke(
+                ListenEvent(
+                    id,
+                    item.mediaMetadata.title?.toString().orEmpty(),
+                    item.mediaMetadata.artist?.toString().orEmpty(),
+                    item.mediaMetadata.albumTitle?.toString().orEmpty(),
+                    accMs,
+                    !counted,
+                ),
+            )
+            counted = true
+            accMs = 0L
+        }
+        if (ending) {
+            accMs = 0L
+            counted = false
+        }
+    }
+
     private val listener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) {
             if (events.contains(Player.EVENT_TIMELINE_CHANGED)) rebuildQueue()
@@ -65,7 +112,16 @@ class PlayerController(private val context: Context) {
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            val playing = controller?.isPlaying == true
+            tick(playing)
+            emitListen(prevItem, ending = true)
+            prevItem = mediaItem
             mediaItem?.mediaId?.toLongOrNull()?.let { onTrackStarted?.invoke(it) }
+        }
+
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            tick(isPlaying)
+            if (!isPlaying) emitListen(controller?.currentMediaItem, ending = false)
         }
     }
 
@@ -80,6 +136,8 @@ class PlayerController(private val context: Context) {
                 val c = runCatching { future.get() }.getOrNull()
                 if (c != null) {
                     controller = c
+                    prevItem = c.currentMediaItem
+                    resumedAt = if (c.isPlaying) SystemClock.elapsedRealtime() else 0L
                     c.addListener(listener)
                     rebuildQueue()
                     refresh()
@@ -179,6 +237,22 @@ class PlayerController(private val context: Context) {
         return true
     }
 
+    /** Añade varias pistas al final de la cola en una sola operación. Devuelve cuántas eran nuevas. */
+    fun enqueueAll(tracks: List<Track>): Int {
+        val fresh = tracks.filter { t -> queueCache.none { it.trackId == t.id } }
+        if (fresh.isEmpty()) return 0
+        withController { c ->
+            val items = fresh.map { it.toMediaItem() }
+            if (c.mediaItemCount == 0) {
+                c.setMediaItems(items)
+                c.prepare()
+            } else {
+                c.addMediaItems(items)
+            }
+        }
+        return fresh.size
+    }
+
     fun playNext(track: Track) = withController { c ->
         if (c.mediaItemCount == 0) {
             c.setMediaItems(listOf(track.toMediaItem()))
@@ -214,4 +288,6 @@ class PlayerController(private val context: Context) {
         c.stop()
         c.clearMediaItems()
     }
+
+    private companion object { const val MIN_LISTEN_MS = 20_000L }
 }

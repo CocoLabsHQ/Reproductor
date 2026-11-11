@@ -1,0 +1,3 @@
+• Selección múltiple: mantén pulsada una canción y toca las demás. Luego añade todas a una playlist, a la cola, reprodúcelas o quítalas de la biblioteca de una vez.
+• Botón "Todo" para seleccionar la lista completa que estás viendo.
+• Dentro de una playlist, la selección múltiple también permite quitar varias canciones a la vez.

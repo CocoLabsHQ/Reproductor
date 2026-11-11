@@ -9,6 +9,9 @@ import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
 import androidx.room.Room
 import com.reproductor.app.data.AppDatabase
+import com.reproductor.app.data.MIGRATION_1_2
+import com.reproductor.app.data.PlayLogEntity
+import com.reproductor.app.data.UpdateManager
 import com.reproductor.app.data.LibraryRepository
 import com.reproductor.app.data.LyricsRepository
 import com.reproductor.app.data.RecentEntity
@@ -24,18 +27,31 @@ class AppContainer(context: Context) {
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    val db: AppDatabase = Room.databaseBuilder(appContext, AppDatabase::class.java, "reproductor.db").build()
+    val db: AppDatabase = Room.databaseBuilder(appContext, AppDatabase::class.java, "reproductor.db")
+        .addMigrations(MIGRATION_1_2)
+        .build()
     val dao = db.dao()
     val settings = SettingsStore(appContext)
     val library = LibraryRepository(appContext)
     val lyrics = LyricsRepository(appContext)
     val player = PlayerController(appContext)
+    val updates = UpdateManager(appContext)
 
     init {
         player.onTrackStarted = { id ->
             scope.launch {
                 dao.addRecent(RecentEntity(id, System.currentTimeMillis()))
                 dao.trimRecents()
+            }
+        }
+        player.onListened = { e ->
+            scope.launch {
+                dao.insertPlay(
+                    PlayLogEntity(
+                        trackId = e.trackId, title = e.title, artist = e.artist, album = e.album,
+                        playedAt = System.currentTimeMillis(), listenedMs = e.listenedMs, isNewPlay = e.isNewPlay,
+                    ),
+                )
             }
         }
     }

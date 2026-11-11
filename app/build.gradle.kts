@@ -13,8 +13,22 @@ android {
         applicationId = "com.reproductor.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 3
+        versionName = "1.2.0"
+    }
+
+    // Clave de firma fija (para que las actualizaciones se puedan instalar encima de la versión anterior).
+    // En GitHub Actions se lee de los secretos del repositorio; en local se usa la clave de depuración.
+    signingConfigs {
+        create("release") {
+            val ks = System.getenv("KEYSTORE_FILE")
+            if (ks != null && File(ks).exists()) {
+                storeFile = File(ks)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -22,9 +36,11 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Firmado con la clave de depuración para que el APK release sea instalable directamente.
-            // Para publicar en Play Store, sustituye esto por tu propia clave (ver README).
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (System.getenv("KEYSTORE_FILE") != null) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 

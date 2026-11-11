@@ -31,6 +31,7 @@ import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -95,6 +96,7 @@ fun LibraryScreen(vm: MainViewModel, onOpenCollection: () -> Unit) {
 @Composable
 fun TrackList(vm: MainViewModel, tracks: List<Track>, header: Boolean = true) {
     val state by vm.playerState.collectAsStateWithLifecycle()
+    SideEffect { vm.selection.page = tracks }
     if (tracks.isEmpty()) {
         EmptyState("No hay canciones aquí todavía.")
         return

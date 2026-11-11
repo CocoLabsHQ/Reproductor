@@ -1,6 +1,12 @@
 package com.reproductor.app.ui
 
 import android.app.Application
+import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.media.ExifInterface
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -13,7 +19,14 @@ import com.reproductor.app.data.AlbumGroup
 import com.reproductor.app.data.ArtistGroup
 import com.reproductor.app.data.FolderGroup
 import com.reproductor.app.data.GenreGroup
+import com.reproductor.app.data.AppearancePrefs
 import com.reproductor.app.data.GifItem
+import com.reproductor.app.data.UpdateInfo
+import com.reproductor.app.data.UpdateUi
+import com.reproductor.app.domain.MonthRow
+import com.reproductor.app.domain.Recap
+import com.reproductor.app.domain.RecapRepository
+import com.reproductor.app.domain.YearStatus
 import com.reproductor.app.data.HiddenTrackEntity
 import com.reproductor.app.data.PlaylistEntity
 import com.reproductor.app.data.PlaylistUi
@@ -21,6 +34,7 @@ import com.reproductor.app.data.Track
 import com.reproductor.app.data.TrackCollection
 import com.reproductor.app.data.VideoItem
 import com.reproductor.app.data.normalizeText
+import com.reproductor.app.ui.components.SelectionState
 import com.reproductor.app.domain.LyricsState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -30,6 +44,12 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.time.YearMonth
+import kotlin.math.max
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -48,12 +68,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val scanning = c.library.scanning
 
     // ---------- Biblioteca ----------
+    val hideWhatsApp: StateFlow<Boolean> = c.settings.hideWhatsApp.stateIn(viewModelScope, eager, false)
+    val whatsAppCount: StateFlow<Int> =
+        c.library.tracks.map { l -> l.count { it.isWhatsApp } }.flowOn(Dispatchers.Default)
+            .stateIn(viewModelScope, eager, 0)
+
     val allTracks: StateFlow<List<Track>> =
-        combine(c.library.tracks, c.dao.hiddenIds()) { tracks, hidden ->
-            if (hidden.isEmpty()) tracks else {
-                val h = hidden.toHashSet()
-                tracks.filter { it.id !in h }
-            }
+        combine(c.library.tracks, c.dao.hiddenIds(), hideWhatsApp) { tracks, hidden, hideWa ->
+            val h = hidden.toHashSet()
+            if (h.isEmpty() && !hideWa) tracks
+            else tracks.filter { it.id !in h && !(hideWa && it.isWhatsApp) }
         }.flowOn(Dispatchers.Default).stateIn(viewModelScope, eager, emptyList())
 
     val trackMap: StateFlow<Map<Long, Track>> =
@@ -137,6 +161,136 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- Ajustes ----------
     val themeMode: StateFlow<Int> = c.settings.themeMode.stateIn(viewModelScope, eager, 0)
 
+    // ---------- Apariencia ----------
+    val appearance: StateFlow<AppearancePrefs> =
+        c.settings.appearance.stateIn(viewModelScope, eager, AppearancePrefs())
+
+    fun setThemeId(id: String) { viewModelScope.launch { c.settings.setThemeId(id) } }
+    fun setAccent(argb: Int) { viewModelScope.launch { c.settings.setAccent(argb) } }
+    fun setTransparency(v: Float) { viewModelScope.launch { c.settings.setTransparency(v) } }
+    fun setBlur(v: Float) { viewModelScope.launch { c.settings.setBlur(v) } }
+    fun setHideWhatsApp(v: Boolean) { viewModelScope.launch { c.settings.setHideWhatsApp(v) } }
+    val autoUpdate: StateFlow<Boolean> = c.settings.autoUpdate.stateIn(viewModelScope, eager, true)
+    fun setAutoUpdate(v: Boolean) { viewModelScope.launch { c.settings.setAutoUpdate(v) } }
+
+    /** Copia la imagen elegida de la galería a la carpeta privada de la app (reducida) y activa el tema "Mi imagen". */
+    fun setCustomImage(uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                val ctx = getApplication<Application>()
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                ctx.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+                var sample = 1
+                while (max(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 1600) sample *= 2
+                var bmp = ctx.contentResolver.openInputStream(uri)?.use {
+                    BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
+                } ?: error("No se pudo leer la imagen")
+                val orientation = ctx.contentResolver.openInputStream(uri)?.use {
+                    ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+                } ?: ExifInterface.ORIENTATION_NORMAL
+                val degrees = when (orientation) {
+                    ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+                    ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+                    ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+                    else -> 0f
+                }
+                if (degrees != 0f) {
+                    val m = Matrix().apply { postRotate(degrees) }
+                    bmp = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
+                }
+                val file = File(ctx.filesDir, "custom_bg.jpg")
+                file.outputStream().use { bmp.compress(Bitmap.CompressFormat.JPEG, 88, it) }
+                c.settings.setCustomImage(file.absolutePath, appearance.value.imageVersion + 1)
+                c.settings.setThemeId("custom")
+            }
+            if (result.isFailure) withContext(Dispatchers.Main) { toast("No se pudo usar esa imagen") }
+        }
+    }
+
+    // ---------- Resúmenes (mensual y anual) ----------
+    private val recapRepo = RecapRepository(c.dao)
+    val currentRecap: StateFlow<Recap?> =
+        c.dao.logCount().mapLatest { recapRepo.month(YearMonth.now()) }.stateIn(viewModelScope, eager, null)
+    val yearStatus: StateFlow<YearStatus> =
+        c.dao.logCount().mapLatest { recapRepo.yearStatus() }.stateIn(viewModelScope, eager, YearStatus())
+    val monthRows: StateFlow<List<MonthRow>> =
+        c.dao.logCount().mapLatest { recapRepo.monthRows() }.stateIn(viewModelScope, eager, emptyList())
+
+    var wrapped by mutableStateOf<Recap?>(null)
+    var clipQuery by mutableStateOf<String?>(null)
+
+    fun openMonthRecap(ym: YearMonth) { viewModelScope.launch { wrapped = recapRepo.month(ym) } }
+    fun openCurrentRecap() = openMonthRecap(YearMonth.now())
+    fun openYearRecap() { viewModelScope.launch { wrapped = recapRepo.year() } }
+
+    /** Busca el videoclip dentro de la app. Usa Internet solo en este momento. */
+    fun openClip(artist: String, title: String) {
+        player.pause()
+        clipQuery = "$artist $title official video"
+    }
+
+    // ---------- Actualizaciones ----------
+    var updateUi by mutableStateOf<UpdateUi>(UpdateUi.Hidden)
+    var whatsNew by mutableStateOf<String?>(null)
+    val currentVersion: String get() = c.updates.currentVersion()
+
+    fun checkForUpdates(manual: Boolean = false) {
+        viewModelScope.launch {
+            val info = c.updates.check()
+            if (info != null) updateUi = UpdateUi.Available(info)
+            else if (manual) toast("Ya tienes la última versión (o no hay conexión)")
+        }
+    }
+
+    fun dismissUpdate() { updateUi = UpdateUi.Hidden }
+
+    fun startUpdate(info: UpdateInfo) {
+        updateUi = UpdateUi.Downloading(info, 0)
+        viewModelScope.launch {
+            val id = runCatching { c.updates.enqueue(info) }.getOrNull()
+            if (id == null) { updateUi = UpdateUi.Error("No se pudo iniciar la descarga"); return@launch }
+            while (true) {
+                val p = c.updates.progress(id)
+                if (p.status == android.app.DownloadManager.STATUS_SUCCESSFUL) { installUpdate(info); return@launch }
+                if (p.status == android.app.DownloadManager.STATUS_FAILED) {
+                    updateUi = UpdateUi.Error("La descarga falló. Revisa tu conexión e inténtalo de nuevo.")
+                    return@launch
+                }
+                updateUi = UpdateUi.Downloading(info, p.percent)
+                delay(500)
+            }
+        }
+    }
+
+    fun installUpdate(info: UpdateInfo) {
+        if (!c.updates.canInstall()) {
+            updateUi = UpdateUi.NeedsPermission(info)
+        } else {
+            runCatching { getApplication<Application>().startActivity(c.updates.installIntent(info)) }
+            updateUi = UpdateUi.Hidden
+        }
+    }
+
+    fun openInstallPermission() {
+        runCatching { getApplication<Application>().startActivity(c.updates.permissionIntent()) }
+    }
+
+    fun dismissWhatsNew() {
+        whatsNew = null
+        viewModelScope.launch { c.settings.setLastSeenVersion(currentVersion) }
+    }
+
+    init {
+        viewModelScope.launch {
+            // "Novedades" tras actualizar: se muestran si la versión cambió desde la última vez.
+            val last = c.settings.lastSeenVersion.first()
+            val cur = currentVersion
+            if (last == null) c.settings.setLastSeenVersion(cur)
+            else if (last != cur) whatsNew = c.updates.bundledNotes().ifBlank { null }
+            if (c.settings.autoUpdate.first()) checkForUpdates()
+        }
+    }
+
     // ---------- Estado de navegación ----------
     var playerOpen by mutableStateOf(false)
     var openVideo by mutableStateOf<VideoItem?>(null)
@@ -144,8 +298,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     var libraryTab by mutableIntStateOf(0)
     var collection by mutableStateOf<TrackCollection?>(null)
     var openPlaylistId by mutableStateOf<Long?>(null)
-    var trackForPlaylistDialog by mutableStateOf<Track?>(null)
-    var trackToHide by mutableStateOf<Track?>(null)
+    val selection = SelectionState()
+    var tracksForPlaylistDialog by mutableStateOf<List<Track>?>(null)
+    var tracksToHide by mutableStateOf<List<Track>?>(null)
 
     // ---------- Ciclo de vida ----------
     private var observing = false
@@ -203,25 +358,48 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---------- Playlists ----------
-    fun createPlaylist(name: String, firstTrack: Track? = null) {
+    fun createPlaylist(name: String, tracks: List<Track> = emptyList()) {
         val clean = name.trim()
         if (clean.isEmpty()) return
         viewModelScope.launch {
             val id = c.dao.insertPlaylist(PlaylistEntity(name = clean, createdAt = System.currentTimeMillis()))
-            if (firstTrack != null) c.dao.addTracksToPlaylist(id, listOf(firstTrack.id))
-            toast(if (firstTrack != null) "Añadida a «$clean»" else "Playlist creada")
+            if (tracks.isNotEmpty()) c.dao.addTracksToPlaylist(id, tracks.map { it.id })
+            toast(
+                when (tracks.size) {
+                    0 -> "Playlist creada"
+                    1 -> "Añadida a «$clean»"
+                    else -> "${tracks.size} canciones añadidas a «$clean»"
+                },
+            )
+            selection.clear()
         }
     }
 
-    fun addToPlaylist(playlistId: Long, playlistName: String, track: Track) {
+    /** Añade una o varias canciones (selección múltiple) a una playlist, ignorando las que ya estaban. */
+    fun addToPlaylist(playlistId: Long, playlistName: String, tracks: List<Track>) {
+        val existing = playlists.value.firstOrNull { it.id == playlistId }?.tracks?.map { it.id }?.toHashSet().orEmpty()
+        val fresh = tracks.filter { it.id !in existing }
         viewModelScope.launch {
-            c.dao.addTracksToPlaylist(playlistId, listOf(track.id))
-            toast("Añadida a «$playlistName»")
+            if (fresh.isNotEmpty()) c.dao.addTracksToPlaylist(playlistId, fresh.map { it.id })
+            toast(
+                when (fresh.size) {
+                    0 -> "Ya estaban en «$playlistName»"
+                    1 -> "Añadida a «$playlistName»"
+                    else -> "${fresh.size} canciones añadidas a «$playlistName»"
+                },
+            )
+            selection.clear()
         }
     }
 
-    fun addAllToPlaylist(playlistId: Long, tracks: List<Track>) {
-        viewModelScope.launch { c.dao.addTracksToPlaylist(playlistId, tracks.map { it.id }) }
+    fun enqueueAll(tracks: List<Track>) {
+        val added = player.enqueueAll(tracks)
+        toast(if (added == 0) "Ya estaban en la cola" else "$added canciones añadidas a la cola")
+        selection.clear()
+    }
+
+    fun removeFromPlaylist(playlistId: Long, tracks: List<Track>) {
+        viewModelScope.launch { tracks.forEach { c.dao.removePlaylistTrack(playlistId, it.id) } }
     }
 
     fun removeFromPlaylist(playlistId: Long, track: Track) {
@@ -242,9 +420,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---------- Biblioteca: ocultar (nunca borra el archivo) ----------
-    fun hide(track: Track) {
-        viewModelScope.launch { c.dao.hide(HiddenTrackEntity(track.id)) }
-        toast("Quitada de la biblioteca (el archivo no se borra)")
+    fun hide(tracks: List<Track>) {
+        viewModelScope.launch { tracks.forEach { c.dao.hide(HiddenTrackEntity(it.id)) } }
+        toast(
+            if (tracks.size == 1) "Quitada de la biblioteca (el archivo no se borra)"
+            else "${tracks.size} canciones quitadas (los archivos no se borran)",
+        )
+        selection.clear()
     }
 
     fun restoreHidden() {

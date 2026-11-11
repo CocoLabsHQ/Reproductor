@@ -11,6 +11,8 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.RoomDatabase
 import androidx.room.Transaction
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "playlists")
@@ -37,6 +39,34 @@ data class HiddenTrackEntity(@PrimaryKey val trackId: Long)
 
 @Entity(tableName = "recents")
 data class RecentEntity(@PrimaryKey val trackId: Long, val playedAt: Long)
+
+/** Cada fila es un tramo de escucha de una canción. [isNewPlay] marca la primera vez que cuenta como reproducción. */
+@Entity(tableName = "play_log", indices = [Index("playedAt")])
+data class PlayLogEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val trackId: Long,
+    val title: String,
+    val artist: String,
+    val album: String,
+    val playedAt: Long,
+    val listenedMs: Long,
+    val isNewPlay: Boolean,
+)
+
+data class SongStat(val trackId: Long, val title: String, val artist: String, val album: String, val plays: Int, val ms: Long)
+data class ArtistStat(val name: String, val plays: Int, val ms: Long)
+data class Totals(val ms: Long, val plays: Int, val songs: Int)
+
+val MIGRATION_1_2 = object : Migration(1, 2) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `play_log` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`trackId` INTEGER NOT NULL, `title` TEXT NOT NULL, `artist` TEXT NOT NULL, `album` TEXT NOT NULL, " +
+                "`playedAt` INTEGER NOT NULL, `listenedMs` INTEGER NOT NULL, `isNewPlay` INTEGER NOT NULL)",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_play_log_playedAt` ON `play_log` (`playedAt`)")
+    }
+}
 
 @Dao
 abstract class AppDao {
@@ -96,11 +126,36 @@ abstract class AppDao {
 
     @Query("DELETE FROM recents WHERE trackId NOT IN (SELECT trackId FROM recents ORDER BY playedAt DESC LIMIT 100)")
     abstract suspend fun trimRecents()
+
+    // ---------- Registro de escucha (resúmenes) ----------
+    @Insert
+    abstract suspend fun insertPlay(p: PlayLogEntity)
+
+    @Query("SELECT COUNT(*) FROM play_log")
+    abstract fun logCount(): Flow<Int>
+
+    @Query("SELECT MIN(playedAt) FROM play_log")
+    abstract suspend fun firstPlay(): Long?
+
+    @Query("SELECT trackId, title, artist, album, SUM(isNewPlay) AS plays, SUM(listenedMs) AS ms FROM play_log WHERE playedAt >= :from AND playedAt < :to GROUP BY trackId ORDER BY plays DESC, ms DESC LIMIT :limit")
+    abstract suspend fun topSongs(from: Long, to: Long, limit: Int): List<SongStat>
+
+    @Query("SELECT artist AS name, SUM(isNewPlay) AS plays, SUM(listenedMs) AS ms FROM play_log WHERE playedAt >= :from AND playedAt < :to GROUP BY artist ORDER BY ms DESC LIMIT :limit")
+    abstract suspend fun topArtists(from: Long, to: Long, limit: Int): List<ArtistStat>
+
+    @Query("SELECT COALESCE(SUM(listenedMs), 0) AS ms, COALESCE(SUM(isNewPlay), 0) AS plays, COUNT(DISTINCT trackId) AS songs FROM play_log WHERE playedAt >= :from AND playedAt < :to")
+    abstract suspend fun totals(from: Long, to: Long): Totals
+
+    @Query("SELECT CAST(strftime('%H', playedAt / 1000, 'unixepoch', 'localtime') AS INTEGER) AS h FROM play_log WHERE playedAt >= :from AND playedAt < :to GROUP BY h ORDER BY SUM(listenedMs) DESC LIMIT 1")
+    abstract suspend fun peakHour(from: Long, to: Long): Int?
+
+    @Query("SELECT DISTINCT strftime('%Y-%m', playedAt / 1000, 'unixepoch', 'localtime') FROM play_log ORDER BY 1 DESC")
+    abstract suspend fun months(): List<String>
 }
 
 @Database(
-    entities = [PlaylistEntity::class, PlaylistTrackEntity::class, HiddenTrackEntity::class, RecentEntity::class],
-    version = 1,
+    entities = [PlaylistEntity::class, PlaylistTrackEntity::class, HiddenTrackEntity::class, RecentEntity::class, PlayLogEntity::class],
+    version = 2,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {

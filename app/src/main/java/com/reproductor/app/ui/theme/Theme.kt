@@ -7,6 +7,7 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -23,7 +24,7 @@ val Beak = Color(0xFFF5B82E)
 val Mint = Color(0xFFA8F0D0)
 val Navy = Color(0xFF0F2A44)
 
-private val LightColors = lightColorScheme(
+internal val LightColors = lightColorScheme(
     primary = Rooster, onPrimary = Color.White,
     primaryContainer = Color(0xFFFFDAD6), onPrimaryContainer = Color(0xFF410002),
     secondary = Cyan, onSecondary = Color.White,
@@ -35,7 +36,7 @@ private val LightColors = lightColorScheme(
     outline = Color(0xFF5B8C94),
 )
 
-private val DarkColors = darkColorScheme(
+internal val DarkColors = darkColorScheme(
     primary = Color(0xFFFF5A52), onPrimary = Color.White,
     primaryContainer = Color(0xFF7A1411), onPrimaryContainer = Color(0xFFFFDAD6),
     secondary = Color(0xFF4CC3F0), onSecondary = Navy,
@@ -73,11 +74,13 @@ fun brandBrush(dark: Boolean): Brush = if (dark) {
 }
 
 @Composable
-fun ReproductorTheme(dark: Boolean, content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = if (dark) DarkColors else LightColors,
-        typography = AppTypography,
-        shapes = AppShapes,
-        content = content,
-    )
+fun ReproductorTheme(theme: ResolvedTheme, content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalResolvedTheme provides theme) {
+        MaterialTheme(
+            colorScheme = theme.colorScheme(),
+            typography = AppTypography,
+            shapes = AppShapes,
+            content = content,
+        )
+    }
 }

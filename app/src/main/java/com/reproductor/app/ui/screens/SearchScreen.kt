@@ -16,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -29,6 +30,7 @@ fun SearchScreen(vm: MainViewModel) {
     val query by vm.searchQuery.collectAsStateWithLifecycle()
     val results by vm.searchResults.collectAsStateWithLifecycle()
     val state by vm.playerState.collectAsStateWithLifecycle()
+    SideEffect { vm.selection.page = results }
 
     Column(Modifier.fillMaxSize()) {
         Text(

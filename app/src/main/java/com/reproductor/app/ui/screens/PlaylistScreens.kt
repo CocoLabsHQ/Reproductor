@@ -30,6 +30,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +44,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.reproductor.app.data.PlaylistUi
+import com.reproductor.app.data.Track
 import com.reproductor.app.ui.MainViewModel
 import com.reproductor.app.ui.components.EmptyState
 import com.reproductor.app.ui.components.PlayShuffleButtons
@@ -125,7 +128,7 @@ fun PlaylistsScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
         FloatingActionButton(
             onClick = { showCreate = true },
             containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = Color.White,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
         ) { Icon(Icons.Rounded.Add, "Nueva playlist") }
     }
@@ -155,6 +158,15 @@ fun PlaylistDetailScreen(vm: MainViewModel, onBack: () -> Unit) {
     val source = playlist?.tracks.orEmpty()
     // Copia local para reordenar con fluidez; se guarda en Room al soltar.
     val items = remember(source) { source.toMutableStateList() }
+
+    // Selección múltiple dentro de la playlist: permite quitar varias canciones de golpe.
+    val sel = vm.selection
+    DisposableEffect(playlist?.id) {
+        val pid = playlist?.id
+        if (pid != null) sel.extra = "Quitar" to { list: List<Track> -> vm.removeFromPlaylist(pid, list) }
+        onDispose { sel.extra = null }
+    }
+    SideEffect { sel.page = items.toList() }
 
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.padding(horizontal = 4.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {

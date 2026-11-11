@@ -4,7 +4,9 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.media.AudioManager
 import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -37,6 +39,7 @@ import androidx.compose.material.icons.rounded.VolumeDown
 import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
@@ -70,9 +73,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -145,6 +150,7 @@ private fun ArtBox(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TrackRow(
     track: Track,
@@ -155,15 +161,29 @@ fun TrackRow(
     extraMenu: List<Pair<String, () -> Unit>> = emptyList(),
 ) {
     val actions = LocalTrackActions.current
+    val sel = LocalSelection.current
+    val haptic = LocalHapticFeedback.current
+    val selected = sel.isSelected(track.id)
     var menu by remember { mutableStateOf(false) }
     Row(
         modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f) else Color.Transparent)
+            .combinedClickable(
+                onClick = { if (sel.active) sel.toggle(track) else onClick() },
+                onLongClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    sel.toggle(track)
+                },
+            )
             .padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        leading?.invoke()
+        if (sel.active) {
+            Checkbox(checked = selected, onCheckedChange = null, modifier = Modifier.padding(end = 12.dp))
+        } else {
+            leading?.invoke()
+        }
         TrackArt(track, Modifier.size(48.dp))
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
@@ -184,7 +204,7 @@ fun TrackRow(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 8.dp),
         )
-        Box {
+        if (sel.active) Spacer(Modifier.width(12.dp)) else Box {
             IconButton(onClick = { menu = true }) {
                 Icon(Icons.Rounded.MoreVert, contentDescription = "Más opciones")
             }
@@ -246,7 +266,7 @@ fun PlayPauseButton(isPlaying: Boolean, size: Dp, onClick: () -> Unit, modifier:
             Icon(
                 if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                 contentDescription = if (playing) "Pausar" else "Reproducir",
-                tint = Color.White, modifier = Modifier.size(size * 0.6f),
+                tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(size * 0.6f),
             )
         }
     }

@@ -87,7 +87,8 @@ import com.reproductor.app.ui.components.blockTouches
 import com.reproductor.app.ui.components.rememberPositionMs
 import com.reproductor.app.ui.theme.Beak
 import com.reproductor.app.ui.theme.Mint
-import com.reproductor.app.ui.theme.brandBrush
+import com.reproductor.app.ui.theme.LocalResolvedTheme
+import com.reproductor.app.ui.theme.ThemeBackground
 
 @Composable
 fun PlayerScreen(vm: MainViewModel, isDark: Boolean, onClose: () -> Unit) {
@@ -108,7 +109,8 @@ fun PlayerScreen(vm: MainViewModel, isDark: Boolean, onClose: () -> Unit) {
 
     BackHandler(onBack = onClose)
 
-    Box(Modifier.fillMaxSize().background(brandBrush(isDark)).blockTouches()) {
+    Box(Modifier.fillMaxSize().blockTouches()) {
+        ThemeBackground(LocalResolvedTheme.current, player = true)
         Column(Modifier.fillMaxSize().systemBarsPadding().padding(horizontal = 22.dp)) {
             // Barra superior
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

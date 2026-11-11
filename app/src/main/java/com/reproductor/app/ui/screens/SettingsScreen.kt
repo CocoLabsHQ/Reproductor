@@ -13,13 +13,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -27,13 +28,26 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.reproductor.app.ui.MainViewModel
 
 @Composable
-fun SettingsScreen(vm: MainViewModel) {
+private fun SwitchRow(title: String, description: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+@Composable
+fun SettingsScreen(vm: MainViewModel, onOpenStyles: () -> Unit, onOpenRecap: () -> Unit) {
     val context = LocalContext.current
-    val theme by vm.themeMode.collectAsStateWithLifecycle()
     val lyricsTree by vm.lyricsTree.collectAsStateWithLifecycle()
     val hidden by vm.hiddenCount.collectAsStateWithLifecycle()
     val tracks by vm.allTracks.collectAsStateWithLifecycle()
     val scanning by vm.scanning.collectAsStateWithLifecycle()
+    val hideWa by vm.hideWhatsApp.collectAsStateWithLifecycle()
+    val waCount by vm.whatsAppCount.collectAsStateWithLifecycle()
+    val autoUpdate by vm.autoUpdate.collectAsStateWithLifecycle()
 
     val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
         if (uri != null) {
@@ -51,11 +65,43 @@ fun SettingsScreen(vm: MainViewModel) {
         Text("Ajustes", style = MaterialTheme.typography.headlineMedium)
 
         Text("Apariencia", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp))
+        Text(
+            "Temas, imagen de fondo de tu galería, color y modo claro u oscuro.",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Button(onClick = onOpenStyles) { Text("Estilos") }
+        HorizontalDivider()
+
+        Text("Biblioteca", style = MaterialTheme.typography.titleLarge)
+        Text(
+            "${tracks.size} canciones" + if (scanning) " · actualizando…" else "",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        SwitchRow(
+            title = "Ocultar audios de WhatsApp",
+            description = "Se detectan por la carpeta (WhatsApp Audio, notas de voz…) y por el nombre del archivo (AUD-…-WA0001). " +
+                if (waCount > 0) "Ahora hay $waCount en tu dispositivo." else "No se encontró ninguno.",
+            checked = hideWa,
+            onChange = { vm.setHideWhatsApp(it) },
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Sistema", "Claro", "Oscuro").forEachIndexed { i, label ->
-                FilterChip(selected = theme == i, onClick = { vm.setTheme(i) }, label = { Text(label) })
+            Button(onClick = { vm.refreshLibrary() }) { Text("Buscar música nueva") }
+            if (hidden > 0) {
+                OutlinedButton(onClick = { vm.restoreHidden() }) { Text("Restaurar ocultas ($hidden)") }
             }
         }
+        Text(
+            "Quitar una canción de la biblioteca solo la oculta en esta app: el archivo nunca se borra del dispositivo.",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        HorizontalDivider()
+
+        Text("Resumen de música", style = MaterialTheme.typography.titleLarge)
+        Text(
+            "La app lleva la cuenta de lo que escuchas (solo en tu teléfono) para mostrarte resúmenes mensuales y, tras un año, tu resumen anual.",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        OutlinedButton(onClick = onOpenRecap) { Text("Ver mis resúmenes") }
         HorizontalDivider()
 
         Text("Letras de canciones", style = MaterialTheme.typography.titleLarge)
@@ -78,27 +124,20 @@ fun SettingsScreen(vm: MainViewModel) {
         }
         HorizontalDivider()
 
-        Text("Biblioteca", style = MaterialTheme.typography.titleLarge)
-        Text(
-            "${tracks.size} canciones" + if (scanning) " · actualizando…" else "",
-            style = MaterialTheme.typography.bodyMedium,
+        Text("Actualizaciones", style = MaterialTheme.typography.titleLarge)
+        SwitchRow(
+            title = "Buscar actualizaciones al abrir",
+            description = "Consulta las versiones publicadas en GitHub. Es lo único (junto con los videoclips) que usa Internet.",
+            checked = autoUpdate,
+            onChange = { vm.setAutoUpdate(it) },
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { vm.refreshLibrary() }) { Text("Buscar música nueva") }
-            if (hidden > 0) {
-                OutlinedButton(onClick = { vm.restoreHidden() }) { Text("Restaurar ocultas ($hidden)") }
-            }
-        }
-        Text(
-            "Quitar una canción de la biblioteca solo la oculta en esta app: el archivo nunca se borra del dispositivo.",
-            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        OutlinedButton(onClick = { vm.checkForUpdates(manual = true) }) { Text("Buscar ahora") }
         HorizontalDivider()
 
         Text("Acerca de", style = MaterialTheme.typography.titleLarge)
         Text(
-            "Reproductor 1.0.0\nSin anuncios, sin rastreadores, sin analíticas y sin permiso de Internet: " +
-                "todo funciona sin conexión.",
+            "Reproductor ${vm.currentVersion}\nSin anuncios, sin rastreadores ni analíticas. La música, las playlists y los resúmenes funcionan sin conexión; " +
+                "Internet solo se usa para los videoclips (cuando tú los pides) y para buscar actualizaciones.",
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }

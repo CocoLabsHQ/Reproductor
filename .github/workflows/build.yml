@@ -3,8 +3,12 @@ name: Compilar APK
 on:
   push:
     branches: [main, master]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: write   # necesario para publicar Releases al subir una etiqueta v*
 
 jobs:
   apk:
@@ -24,6 +28,18 @@ jobs:
         with:
           gradle-version: 8.9
 
+      - name: Preparar clave de firma (si está configurada en los secretos)
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+            echo "Clave de firma fija cargada."
+          else
+            echo "Sin clave fija: el release se firmará con la clave de depuración."
+          fi
+
       - name: Compilar APK de depuración
         run: gradle assembleDebug --stacktrace
 
@@ -33,12 +49,24 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
 
       - name: Compilar APK release (optimizado y más ligero)
-        continue-on-error: true
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: gradle assembleRelease --stacktrace
 
+      - name: Renombrar APK release
+        run: cp app/build/outputs/apk/release/app-release.apk "Reproductor-${GITHUB_REF_NAME//\//-}.apk"
+
       - uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: Reproductor-release-apk
-          path: app/build/outputs/apk/release/*.apk
-          if-no-files-found: ignore
+          path: Reproductor-*.apk
+
+      - name: Publicar Release (solo al subir una etiqueta v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Reproductor-*.apk
+          body_path: app/src/main/assets/whatsnew.txt
+          name: Reproductor ${{ github.ref_name }}
