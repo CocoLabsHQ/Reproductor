@@ -88,8 +88,7 @@ import com.reproductor.app.data.VideoItem
 import com.reproductor.app.data.formatDuration
 import com.reproductor.app.playback.PlayerController
 import com.reproductor.app.playback.PlayerState
-import com.reproductor.app.ui.theme.Cyan
-import com.reproductor.app.ui.theme.Teal
+import com.reproductor.app.ui.theme.LocalResolvedTheme
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
@@ -102,8 +101,6 @@ class TrackActions(
 )
 
 val LocalTrackActions = staticCompositionLocalOf<TrackActions> { error("TrackActions no proporcionado") }
-
-private val placeholderBrush = Brush.linearGradient(listOf(Cyan, Teal))
 
 @Composable
 fun TrackArt(
@@ -137,7 +134,9 @@ private fun ArtBox(
     iconSize: Dp,
     placeholder: androidx.compose.ui.graphics.vector.ImageVector = Icons.Rounded.MusicNote,
 ) {
-    Box(modifier.clip(shape).background(placeholderBrush), contentAlignment = Alignment.Center) {
+    val theme = LocalResolvedTheme.current
+    val brush = remember(theme) { theme.placeholderBrush() }
+    Box(modifier.clip(shape).background(brush), contentAlignment = Alignment.Center) {
         val b = bmp
         if (b != null) {
             Image(
@@ -145,7 +144,7 @@ private fun ArtBox(
                 contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(),
             )
         } else {
-            Icon(placeholder, contentDescription = null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(iconSize))
+            Icon(placeholder, contentDescription = null, tint = theme.onAccent.copy(alpha = 0.9f), modifier = Modifier.size(iconSize))
         }
     }
 }
@@ -303,7 +302,7 @@ fun MiniPlayer(state: PlayerState, track: Track?, player: PlayerController, onOp
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        state.title.ifBlank { "Reproductor" }, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        state.title.ifBlank { "Music Box" }, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSecondaryContainer,
                     )
                     Text(

@@ -295,6 +295,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- Diagnóstico de reproducción ----------
     val lastError = MutableStateFlow<String?>(null)
 
+    /** Cierre inesperado de la última vez (si lo hubo): se ofrece enviarlo, nunca se envía solo. */
+    var pendingCrash by mutableStateOf<String?>(c.reporter.pendingCrash())
+
+    /** Aviso en pantalla de un error de reproducción (con opción de reportarlo). */
+    var errorPrompt by mutableStateOf<String?>(null)
+
+    fun reportIssue(title: String, details: String) {
+        runCatching { getApplication<Application>().startActivity(c.reporter.issueIntent(title, details)) }
+            .onFailure { toast("No se pudo abrir el navegador") }
+    }
+
+    fun dismissCrash(report: Boolean) {
+        val text = pendingCrash
+        if (report && text != null) reportIssue("Cierre inesperado", text)
+        c.reporter.clearCrash()
+        pendingCrash = null
+    }
+
     init {
         player.onError = { msg ->
             val t = playerState.value.currentId?.let { trackMap.value[it] }
@@ -302,6 +320,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 "\nArchivo: ${it.path}\nTipo: ${it.mime.ifBlank { "?" }} · ${formatDuration(it.durationMs)}"
             }.orEmpty())
             toast(msg, long = true)
+            if (errorPrompt == null) errorPrompt = lastError.value
         }
     }
 
@@ -336,6 +355,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun onAppStop() {
+        errorPrompt = null
         if (observing) {
             c.library.stopObserving()
             observing = false

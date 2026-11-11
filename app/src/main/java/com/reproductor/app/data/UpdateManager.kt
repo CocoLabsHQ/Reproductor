@@ -104,7 +104,7 @@ class UpdateManager(context: Context) {
     fun enqueue(info: UpdateInfo): Long {
         apkFile(info).delete()
         val req = DownloadManager.Request(Uri.parse(info.url))
-            .setTitle("Reproductor ${info.version}")
+            .setTitle("Music Box ${info.version}")
             .setMimeType("application/vnd.android.package-archive")
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
             .setDestinationInExternalFilesDir(ctx, Environment.DIRECTORY_DOWNLOADS, info.fileName)

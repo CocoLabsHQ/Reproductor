@@ -111,7 +111,7 @@ fun SettingsScreen(vm: MainViewModel, onOpenStyles: () -> Unit, onOpenRecap: () 
 
         Text("Letras de canciones", style = MaterialTheme.typography.titleLarge)
         Text(
-            "Reproductor busca archivos .lrc (sincronizados) o .txt con el mismo nombre que la canción. " +
+            "Music Box busca archivos .lrc (sincronizados) o .txt con el mismo nombre que la canción. " +
                 "Desde Android 11 la app no puede leerlos junto a la música, así que elige una carpeta que contenga tus letras (se leen también las subcarpetas).",
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -152,12 +152,20 @@ fun SettingsScreen(vm: MainViewModel, onOpenStyles: () -> Unit, onOpenRecap: () 
                 Button(onClick = { clipboard.setText(AnnotatedString(err)) }) { Text("Copiar") }
                 OutlinedButton(onClick = { vm.lastError.value = null }) { Text("Borrar") }
             }
+            Button(onClick = { vm.reportIssue("Error de reproducción", err) }) { Text("Reportar en GitHub") }
         }
+        OutlinedButton(onClick = { vm.reportIssue("Problema en Music Box", "(describe el problema)") }) {
+            Text("Reportar un problema")
+        }
+        Text(
+            "Se abre GitHub con el texto ya escrito; tú lo revisas y decides si lo envías. La app nunca envía nada por sí sola.",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         HorizontalDivider()
 
         Text("Acerca de", style = MaterialTheme.typography.titleLarge)
         Text(
-            "Reproductor ${vm.currentVersion}\nSin anuncios, sin rastreadores ni analíticas. La música, las playlists y los resúmenes funcionan sin conexión; " +
+            "Music Box · Reproductor de música ${vm.currentVersion}\nSin anuncios, sin rastreadores ni analíticas. La música, las playlists y los resúmenes funcionan sin conexión; " +
                 "Internet solo se usa para los videoclips (cuando tú los pides) y para buscar actualizaciones.",
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

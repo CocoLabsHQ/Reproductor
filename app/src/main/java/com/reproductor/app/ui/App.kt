@@ -253,6 +253,8 @@ fun App(vm: MainViewModel) {
         HideTrackDialog(vm)
         UpdateDialog(vm)
         WhatsNewDialog(vm)
+        CrashDialog(vm)
+        PlaybackErrorDialog(vm)
     }
 }
 
@@ -303,10 +305,10 @@ private fun HideTrackDialog(vm: MainViewModel) {
         text = {
             Text(
                 if (tracks.size == 1) {
-                    "«${tracks[0].title}» dejará de mostrarse en Reproductor. El archivo NO se borra del dispositivo " +
+                    "«${tracks[0].title}» dejará de mostrarse en Music Box. El archivo NO se borra del dispositivo " +
                         "y puedes restaurarla desde Ajustes."
                 } else {
-                    "${tracks.size} canciones dejarán de mostrarse en Reproductor. Los archivos NO se borran del dispositivo " +
+                    "${tracks.size} canciones dejarán de mostrarse en Music Box. Los archivos NO se borran del dispositivo " +
                         "y puedes restaurarlas desde Ajustes."
                 },
             )
@@ -324,7 +326,8 @@ private fun PermissionScreen(onRequest: () -> Unit, onSettings: () -> Unit) {
         verticalArrangement = Arrangement.Center,
     ) {
         Image(painterResource(R.drawable.logo), contentDescription = null, modifier = Modifier.size(180.dp))
-        Text("Reproductor", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(top = 16.dp))
+        Text("Music Box", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(top = 16.dp))
+        Text("Reproductor de música", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
             "Para encontrar tu música, videos y GIF necesito permiso para leer los archivos multimedia del dispositivo. " +
                 "Todo se queda en tu teléfono: la app no usa Internet ni muestra anuncios.",
@@ -376,7 +379,7 @@ private fun UpdateDialog(vm: MainViewModel) {
             title = { Text("Un permiso más") },
             text = {
                 Text(
-                    "Android necesita que permitas a Reproductor instalar actualizaciones. " +
+                    "Android necesita que permitas a Music Box instalar actualizaciones. " +
                         "Activa «Permitir desde esta fuente», vuelve aquí y pulsa «Instalar».",
                 )
             },
@@ -400,5 +403,44 @@ private fun WhatsNewDialog(vm: MainViewModel) {
         title = { Text("Novedades de la versión ${vm.currentVersion}") },
         text = { Column(Modifier.verticalScroll(rememberScrollState())) { Text(notes) } },
         confirmButton = { TextButton(onClick = { vm.dismissWhatsNew() }) { Text("¡Genial!") } },
+    )
+}
+
+@Composable
+private fun CrashDialog(vm: MainViewModel) {
+    val crash = vm.pendingCrash ?: return
+    AlertDialog(
+        onDismissRequest = { vm.dismissCrash(report = false) },
+        title = { Text("La app se cerró inesperadamente") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text("Lamentamos el fallo. Puedes reportarlo: se abrirá GitHub con el texto ya escrito y tú decides si lo envías. No se envía nada automáticamente.")
+                Text(
+                    crash.lineSequence().take(6).joinToString("\n"),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 10.dp),
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = { vm.dismissCrash(report = true) }) { Text("Reportar") } },
+        dismissButton = { TextButton(onClick = { vm.dismissCrash(report = false) }) { Text("Descartar") } },
+    )
+}
+
+@Composable
+private fun PlaybackErrorDialog(vm: MainViewModel) {
+    val message = vm.errorPrompt ?: return
+    AlertDialog(
+        onDismissRequest = { vm.errorPrompt = null },
+        title = { Text("No se pudo reproducir") },
+        text = { Column(Modifier.verticalScroll(rememberScrollState())) { Text(message) } },
+        confirmButton = {
+            TextButton(onClick = {
+                vm.reportIssue("Error de reproducción", vm.lastError.value ?: message)
+                vm.errorPrompt = null
+            }) { Text("Reportar") }
+        },
+        dismissButton = { TextButton(onClick = { vm.errorPrompt = null }) { Text("Cerrar") } },
     )
 }

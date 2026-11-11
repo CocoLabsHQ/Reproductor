@@ -54,6 +54,7 @@ object Themes {
 
     val presets: List<ThemeSpec> = listOf(
         classic,
+        ThemeSpec("musicbox", "Music Box", true, Color(0xFF2A0A14), Color(0xFF6A1226), Color(0xFFA92636), Color(0xFFF2DCC8), Decor.NONE),
         ThemeSpec("sunset", "Atardecer", true, Color(0xFF1B1035), Color(0xFF7B2A6B), Color(0xFFD2562E), Color(0xFFFFB74D), Decor.HILLS),
         ThemeSpec("forest", "Bosque", true, Color(0xFF0B2B20), Color(0xFF14543B), Color(0xFF1F7A4D), Color(0xFFB9F6CA), Decor.BOKEH),
         ThemeSpec("ocean", "Océano", true, Color(0xFF03253D), Color(0xFF0A5C8A), Color(0xFF16A6B6), Color(0xFF7FE9FF), Decor.WAVES),
@@ -92,6 +93,11 @@ data class ResolvedTheme(
 
     /** Color del texto sobre la cabecera. */
     val onHeader: Color get() = if (usesBrandHeader) Color.White else onAccent
+
+    /** Fondo de las carátulas sin foto: sigue el color del tema. */
+    fun placeholderBrush(): Brush =
+        if (usesBrandHeader) Brush.linearGradient(listOf(Cyan, Teal))
+        else Brush.linearGradient(listOf(accent, lerp(accent, if (dark) Color.Black else spec.mid, 0.35f)))
 
     /** Cabecera de Inicio: combina con el acento del tema. */
     fun headerBrush(): Brush =

@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="app/src/main/res/drawable-nodpi/logo.png" alt="Reproductor" width="220">
+  <img src="app/src/main/res/drawable-nodpi/logo.png" alt="Music Box" width="220">
 </p>
 
-<h1 align="center">Reproductor</h1>
+<h1 align="center">Music Box</h1>
 
 <p align="center">
-  Un reproductor de música y multimedia para Android: ligero, bonito y sin anuncios.<br>
+  <b>Reproductor de música</b> y multimedia para Android: ligero, bonito y sin anuncios.<br>
   <b>Sin publicidad · Sin rastreadores · La música funciona 100 % offline</b>
 </p>
 
@@ -13,9 +13,9 @@
 
 ## ¿Qué es?
 
-**Reproductor** es una app Android nativa (Kotlin + Jetpack Compose) que reproduce la música, los videos y los GIF que ya tienes en tu teléfono. Su identidad visual sale de su mascota, el gallo con auriculares: turquesa y cian de fondo, rojo gallo para los botones principales y naranja y amarillo para los detalles.
+**Music Box** es una app Android nativa (Kotlin + Jetpack Compose) que reproduce la música, los videos y los GIF que ya tienes en tu teléfono. Su mascota es un gallo cantor sobre un fondo rojo vino, con tonos coral y crema; el tema «Music Box» usa esa paleta y los demás temas se pueden elegir en Estilos.
 
-> Versión 1.2.1. Primera versión pública: el código compila y se genera el APK automáticamente, pero se está probando en dispositivos reales. Si encuentras un fallo, abre un *issue*.
+> Versión 1.2.2. Primera versión pública: el código compila y se genera el APK automáticamente, pero se está probando en dispositivos reales. Si encuentras un fallo, abre un *issue*.
 
 ## Funciones
 
@@ -56,7 +56,7 @@
 
 ### 🎨 Interfaz y estilos
 - Diseño minimalista con formas redondeadas y animaciones suaves.
-- **Estilos:** 9 temas prediseñados (Clásico, Atardecer, Bosque, Océano, Neón, Medianoche, Aurora, Caramelo y Menta) o **una imagen de tu galería** con ajustes de color, transparencia y desenfoque.
+- **Estilos:** 10 temas prediseñados (Clásico, Music Box, Atardecer, Bosque, Océano, Neón, Medianoche, Aurora, Caramelo y Menta) o **una imagen de tu galería** con ajustes de color, transparencia y desenfoque.
 - Modo claro, oscuro o según el sistema (tema Clásico).
 - La cabecera de Inicio (con el gallo) se oculta sola y combina con el tema elegido.
 - Mini reproductor persistente mientras navegas.
@@ -79,6 +79,7 @@
 - Sin anuncios, sin SDK publicitarios, sin analíticas ni rastreadores.
 - La música, las playlists, las letras y los resúmenes funcionan **sin conexión**.
 - Internet se usa solo en dos casos: **ver un videoclip** (cuando tú lo pides; carga YouTube dentro de la app) y **buscar actualizaciones** (consulta las Releases de GitHub; se puede desactivar en Ajustes).
+- **Nada se envía automáticamente.** Si algo falla, la app ofrece abrir un reporte en GitHub con el texto ya escrito (versión, modelo de teléfono y el error); tú lo revisas y decides si lo envías.
 - Pide acceso a música, videos e imágenes (para encontrar tus archivos) y notificaciones (para los controles).
 
 ## Instalación

@@ -257,7 +257,7 @@ private fun SlideContent(
                 }
                 Reveal(450) {
                     Text(
-                        if (slide.isYear) "Reproductor" else slide.title.substringBefore(' '),
+                        if (slide.isYear) "Music Box" else slide.title.substringBefore(' '),
                         fontSize = 52.sp, fontWeight = FontWeight.Black, color = white, textAlign = TextAlign.Center,
                     )
                 }

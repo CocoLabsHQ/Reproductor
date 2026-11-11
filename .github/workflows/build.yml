@@ -45,7 +45,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Reproductor-debug-apk
+          name: MusicBox-debug-apk
           path: app/build/outputs/apk/debug/*.apk
 
       - name: Compilar APK release (optimizado y más ligero)
@@ -56,17 +56,17 @@ jobs:
         run: gradle assembleRelease --stacktrace
 
       - name: Renombrar APK release
-        run: cp app/build/outputs/apk/release/app-release.apk "Reproductor-${GITHUB_REF_NAME//\//-}.apk"
+        run: cp app/build/outputs/apk/release/app-release.apk "MusicBox-${GITHUB_REF_NAME//\//-}.apk"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Reproductor-release-apk
-          path: Reproductor-*.apk
+          name: MusicBox-release-apk
+          path: MusicBox-*.apk
 
       - name: Publicar Release (solo al subir una etiqueta v*)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: Reproductor-*.apk
+          files: MusicBox-*.apk
           body_path: app/src/main/assets/whatsnew.txt
-          name: Reproductor ${{ github.ref_name }}
+          name: Music Box ${{ github.ref_name }}

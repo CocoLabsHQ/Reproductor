@@ -9,6 +9,7 @@ import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
 import androidx.room.Room
 import com.reproductor.app.data.AppDatabase
+import com.reproductor.app.data.ErrorReporter
 import com.reproductor.app.data.MIGRATION_1_2
 import com.reproductor.app.data.PlayLogEntity
 import com.reproductor.app.data.UpdateManager
@@ -36,6 +37,7 @@ class AppContainer(context: Context) {
     val lyrics = LyricsRepository(appContext)
     val player = PlayerController(appContext)
     val updates = UpdateManager(appContext)
+    val reporter = ErrorReporter(appContext)
 
     init {
         player.onTrackStarted = { id ->
@@ -64,6 +66,7 @@ class ReproductorApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        container.reporter.install()
     }
 
     /** Coil con soporte de GIF animados. */

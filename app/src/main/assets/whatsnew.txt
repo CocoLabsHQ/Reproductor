@@ -1,3 +1,3 @@
-• Si una canción no se puede reproducir, la app ahora lo avisa con el motivo y pasa a la siguiente en lugar de quedarse parada.
-• Ajustes → Diagnóstico muestra el último error (con el archivo y su tipo) y permite copiarlo.
-• Mejor compatibilidad: si el decodificador de audio principal falla, se prueba otro.
+• Nuevo nombre e ícono: ahora la app es «Music Box – Reproductor de música».
+• Las carátulas de las canciones sin foto cambian de color según el tema que elijas.
+• Nuevo tema «Music Box» con los colores del ícono.

@@ -108,7 +108,7 @@ fun HomeScreen(
         },
     ) {
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Reproductor", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+            Text("Music Box", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
             IconButton(onClick = onOpenStyles) { Icon(Icons.Rounded.Palette, "Estilos", tint = MaterialTheme.colorScheme.primary) }
         }
 
