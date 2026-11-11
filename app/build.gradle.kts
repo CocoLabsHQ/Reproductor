@@ -13,8 +13,8 @@ android {
         applicationId = "com.reproductor.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.2.0"
+        versionCode = 4
+        versionName = "1.2.1"
     }
 
     // Clave de firma fija (para que las actualizaciones se puedan instalar encima de la versión anterior).

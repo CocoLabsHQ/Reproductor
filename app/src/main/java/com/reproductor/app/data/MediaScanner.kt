@@ -14,6 +14,7 @@ class MediaScanner(private val context: Context) {
             MediaStore.Audio.Media._ID, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST,
             MediaStore.Audio.Media.ALBUM, MediaStore.Audio.Media.ALBUM_ID, MediaStore.Audio.Media.DURATION,
             MediaStore.Audio.Media.DATE_ADDED, MediaStore.Audio.Media.DATA, MediaStore.Audio.Media.TRACK,
+            MediaStore.Audio.Media.MIME_TYPE,
         )
         val hasGenre = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
         if (hasGenre) cols += MediaStore.Audio.Media.GENRE
@@ -32,6 +33,7 @@ class MediaScanner(private val context: Context) {
             val iDate = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
             val iData = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
             val iTrack = c.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
+            val iMime = c.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
             val iGenre = if (hasGenre) c.getColumnIndex(MediaStore.Audio.Media.GENRE) else -1
             while (c.moveToNext()) {
                 val path = c.getString(iData).orEmpty()
@@ -49,6 +51,7 @@ class MediaScanner(private val context: Context) {
                     dateAdded = c.getLong(iDate),
                     path = path,
                     trackNumber = c.getInt(iTrack) % 1000,
+                    mime = c.getString(iMime).orEmpty(),
                 )
             }
         }

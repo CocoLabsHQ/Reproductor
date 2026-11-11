@@ -7,6 +7,7 @@ import androidx.core.content.ContextCompat
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -72,6 +73,9 @@ class PlayerController(private val context: Context) {
     /** Se invoca cuando se escuchó una canción lo suficiente (>= 20 s) al pausar o cambiar de pista. */
     var onListened: ((ListenEvent) -> Unit)? = null
 
+    /** Se invoca cuando una pista no se puede reproducir (con el motivo). */
+    var onError: ((String) -> Unit)? = null
+
     private var prevItem: MediaItem? = null
     private var accMs = 0L
     private var resumedAt = 0L
@@ -117,6 +121,19 @@ class PlayerController(private val context: Context) {
             emitListen(prevItem, ending = true)
             prevItem = mediaItem
             mediaItem?.mediaId?.toLongOrNull()?.let { onTrackStarted?.invoke(it) }
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
+            val c = controller ?: return
+            val title = c.currentMediaItem?.mediaMetadata?.title?.toString().orEmpty()
+            val detail = error.cause?.message ?: error.message.orEmpty()
+            onError?.invoke("No se pudo reproducir «$title»\n${error.errorCodeName}: $detail")
+            // En vez de quedarse parado, intenta con la siguiente pista de la cola.
+            if (c.hasNextMediaItem()) {
+                c.seekToNextMediaItem()
+                c.prepare()
+                c.play()
+            }
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {

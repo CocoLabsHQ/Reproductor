@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
@@ -22,7 +23,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.reproductor.app.ui.MainViewModel
@@ -48,6 +51,8 @@ fun SettingsScreen(vm: MainViewModel, onOpenStyles: () -> Unit, onOpenRecap: () 
     val hideWa by vm.hideWhatsApp.collectAsStateWithLifecycle()
     val waCount by vm.whatsAppCount.collectAsStateWithLifecycle()
     val autoUpdate by vm.autoUpdate.collectAsStateWithLifecycle()
+    val lastError by vm.lastError.collectAsStateWithLifecycle()
+    val clipboard = LocalClipboardManager.current
 
     val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
         if (uri != null) {
@@ -132,6 +137,22 @@ fun SettingsScreen(vm: MainViewModel, onOpenStyles: () -> Unit, onOpenRecap: () 
             onChange = { vm.setAutoUpdate(it) },
         )
         OutlinedButton(onClick = { vm.checkForUpdates(manual = true) }) { Text("Buscar ahora") }
+        HorizontalDivider()
+
+        Text("Diagnóstico", style = MaterialTheme.typography.titleLarge)
+        val err = lastError
+        if (err == null) {
+            Text(
+                "Sin errores de reproducción. Si una canción no suena, aquí aparecerá el motivo.",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            SelectionContainer { Text(err, style = MaterialTheme.typography.bodyMedium) }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { clipboard.setText(AnnotatedString(err)) }) { Text("Copiar") }
+                OutlinedButton(onClick = { vm.lastError.value = null }) { Text("Borrar") }
+            }
+        }
         HorizontalDivider()
 
         Text("Acerca de", style = MaterialTheme.typography.titleLarge)

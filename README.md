@@ -15,7 +15,7 @@
 
 **Reproductor** es una app Android nativa (Kotlin + Jetpack Compose) que reproduce la música, los videos y los GIF que ya tienes en tu teléfono. Su identidad visual sale de su mascota, el gallo con auriculares: turquesa y cian de fondo, rojo gallo para los botones principales y naranja y amarillo para los detalles.
 
-> Versión 1.2.0. Primera versión pública: el código compila y se genera el APK automáticamente, pero se está probando en dispositivos reales. Si encuentras un fallo, abre un *issue*.
+> Versión 1.2.1. Primera versión pública: el código compila y se genera el APK automáticamente, pero se está probando en dispositivos reales. Si encuentras un fallo, abre un *issue*.
 
 ## Funciones
 

@@ -33,6 +33,7 @@ import com.reproductor.app.data.PlaylistUi
 import com.reproductor.app.data.Track
 import com.reproductor.app.data.TrackCollection
 import com.reproductor.app.data.VideoItem
+import com.reproductor.app.data.formatDuration
 import com.reproductor.app.data.normalizeText
 import com.reproductor.app.ui.components.SelectionState
 import com.reproductor.app.domain.LyricsState
@@ -291,6 +292,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    // ---------- Diagnóstico de reproducción ----------
+    val lastError = MutableStateFlow<String?>(null)
+
+    init {
+        player.onError = { msg ->
+            val t = playerState.value.currentId?.let { trackMap.value[it] }
+            lastError.value = msg + (t?.let {
+                "\nArchivo: ${it.path}\nTipo: ${it.mime.ifBlank { "?" }} · ${formatDuration(it.durationMs)}"
+            }.orEmpty())
+            toast(msg, long = true)
+        }
+    }
+
     // ---------- Estado de navegación ----------
     var playerOpen by mutableStateOf(false)
     var openVideo by mutableStateOf<VideoItem?>(null)
@@ -330,8 +344,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refreshLibrary() = c.library.refresh()
 
-    fun toast(message: String) {
-        Toast.makeText(getApplication(), message, Toast.LENGTH_SHORT).show()
+    fun toast(message: String, long: Boolean = false) {
+        Toast.makeText(getApplication(), message, if (long) Toast.LENGTH_LONG else Toast.LENGTH_SHORT).show()
     }
 
     // ---------- Reproducción ----------
