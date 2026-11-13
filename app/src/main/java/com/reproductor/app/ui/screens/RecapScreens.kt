@@ -404,7 +404,7 @@ private fun isOnline(context: Context): Boolean {
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun ClipScreen(query: String, onClose: () -> Unit) {
+fun ClipSearchScreen(query: String, onClose: () -> Unit) {
     val context = LocalContext.current
     var attempt by remember { mutableIntStateOf(0) }
     val online = remember(attempt) { isOnline(context) }

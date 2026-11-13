@@ -21,6 +21,7 @@ import com.reproductor.app.data.FolderGroup
 import com.reproductor.app.data.GenreGroup
 import com.reproductor.app.data.AppearancePrefs
 import com.reproductor.app.data.GifItem
+import com.reproductor.app.data.ClipResult
 import com.reproductor.app.data.UpdateInfo
 import com.reproductor.app.data.UpdateUi
 import com.reproductor.app.domain.MonthRow
@@ -227,7 +228,50 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Busca el videoclip dentro de la app. Usa Internet solo en este momento. */
     fun openClip(artist: String, title: String) {
         player.pause()
-        clipQuery = "$artist $title official video"
+        val a = artist.takeUnless { it.isBlank() || it == "Artista desconocido" }
+        clipQuery = listOfNotNull(a, title.replace('_', ' '), "official video").joinToString(" ")
+    }
+
+    // ---------- Videoclips incrustados (clave de la API de YouTube del usuario) ----------
+    val youtubeKey: StateFlow<String?> = c.settings.youtubeKey.stateIn(viewModelScope, eager, null)
+
+    fun setYoutubeKey(key: String?) {
+        viewModelScope.launch { c.settings.setYoutubeKey(key?.trim()?.takeIf { it.isNotEmpty() }) }
+    }
+
+    fun testYoutubeKey(key: String) {
+        viewModelScope.launch {
+            val error = c.clips.testKey(key)
+            toast(error ?: "La clave funciona ✓", long = error != null)
+        }
+    }
+
+    suspend fun resolveClip(query: String, refresh: Boolean = false): ClipResult =
+        c.clips.resolve(query, youtubeKey.value, refresh)
+
+    // ---------- Borrar / recuperar los datos del resumen ----------
+    val activeLogCount: StateFlow<Int> = c.dao.logCount().stateIn(viewModelScope, eager, 0)
+    val deletedLogCount: StateFlow<Int> = c.dao.deletedCount().stateIn(viewModelScope, eager, 0)
+
+    fun deleteRecapData() {
+        viewModelScope.launch {
+            val n = c.dao.softDeleteAll()
+            toast("Datos del resumen borrados ($n registros). Puedes recuperarlos en Ajustes.", long = true)
+        }
+    }
+
+    fun restoreRecapData() {
+        viewModelScope.launch {
+            val n = c.dao.restoreAll()
+            toast("Se recuperaron $n registros")
+        }
+    }
+
+    fun purgeRecapData() {
+        viewModelScope.launch {
+            c.dao.purgeDeleted()
+            toast("Datos eliminados definitivamente")
+        }
     }
 
     // ---------- Actualizaciones ----------

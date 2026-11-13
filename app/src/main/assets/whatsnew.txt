@@ -1,3 +1,3 @@
-• Nuevo nombre e ícono: ahora la app es «Music Box – Reproductor de música».
-• Las carátulas de las canciones sin foto cambian de color según el tema que elijas.
-• Nuevo tema «Music Box» con los colores del ícono.
+• Ajustes → Resumen de música: ahora puedes borrar los datos del resumen y recuperarlos después (o eliminarlos para siempre).
+• Videoclips incrustados con el reproductor de YouTube, a pantalla completa y ajustados a la proporción de tu pantalla (19:9, 19.5:9, 20:9…). Botón "Ajustar/Llenar" para elegir si se recorta o se ve entero.
+• Para los videoclips incrustados hay que añadir una clave gratuita de la API de YouTube en Ajustes → Videoclips de YouTube. Sin clave, se sigue usando el buscador de YouTube dentro de la app.

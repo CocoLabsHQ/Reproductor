@@ -246,7 +246,13 @@ fun App(vm: MainViewModel) {
                     onClose = { vm.wrapped = null },
                 )
             }
-            vm.clipQuery?.let { q -> ClipScreen(q, onClose = { vm.clipQuery = null }) }
+            vm.clipQuery?.let { q ->
+                ClipScreen(
+                    vm, q,
+                    onClose = { vm.clipQuery = null },
+                    onOpenSettings = { vm.clipQuery = null; vm.wrapped = null; goTab("settings") },
+                )
+            }
         }
 
         AddToPlaylistDialog(vm)

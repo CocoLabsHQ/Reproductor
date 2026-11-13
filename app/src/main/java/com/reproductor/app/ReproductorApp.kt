@@ -10,7 +10,9 @@ import coil.decode.ImageDecoderDecoder
 import androidx.room.Room
 import com.reproductor.app.data.AppDatabase
 import com.reproductor.app.data.ErrorReporter
+import com.reproductor.app.data.ClipResolver
 import com.reproductor.app.data.MIGRATION_1_2
+import com.reproductor.app.data.MIGRATION_2_3
 import com.reproductor.app.data.PlayLogEntity
 import com.reproductor.app.data.UpdateManager
 import com.reproductor.app.data.LibraryRepository
@@ -29,10 +31,11 @@ class AppContainer(context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     val db: AppDatabase = Room.databaseBuilder(appContext, AppDatabase::class.java, "reproductor.db")
-        .addMigrations(MIGRATION_1_2)
+        .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
         .build()
     val dao = db.dao()
     val settings = SettingsStore(appContext)
+    val clips = ClipResolver(appContext, dao)
     val library = LibraryRepository(appContext)
     val lyrics = LyricsRepository(appContext)
     val player = PlayerController(appContext)

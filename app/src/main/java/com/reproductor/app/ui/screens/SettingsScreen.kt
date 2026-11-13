@@ -1,5 +1,12 @@
 package com.reproductor.app.ui.screens
 
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.AlertDialog
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -52,6 +59,12 @@ fun SettingsScreen(vm: MainViewModel, onOpenStyles: () -> Unit, onOpenRecap: () 
     val waCount by vm.whatsAppCount.collectAsStateWithLifecycle()
     val autoUpdate by vm.autoUpdate.collectAsStateWithLifecycle()
     val lastError by vm.lastError.collectAsStateWithLifecycle()
+    val logCount by vm.activeLogCount.collectAsStateWithLifecycle()
+    val trashCount by vm.deletedLogCount.collectAsStateWithLifecycle()
+    val savedKey by vm.youtubeKey.collectAsStateWithLifecycle()
+    var keyText by remember(savedKey) { mutableStateOf(savedKey.orEmpty()) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    var confirmPurge by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
 
     val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
@@ -107,6 +120,41 @@ fun SettingsScreen(vm: MainViewModel, onOpenStyles: () -> Unit, onOpenRecap: () 
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         OutlinedButton(onClick = onOpenRecap) { Text("Ver mis resúmenes") }
+        if (logCount > 0) {
+            OutlinedButton(onClick = { confirmDelete = true }) { Text("Borrar datos del resumen") }
+        }
+        if (trashCount > 0) {
+            Text(
+                "Hay $trashCount registros borrados que aún se pueden recuperar.",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { vm.restoreRecapData() }) { Text("Recuperar datos borrados") }
+                TextButton(onClick = { confirmPurge = true }) { Text("Eliminar para siempre") }
+            }
+        }
+        HorizontalDivider()
+
+        Text("Videoclips de YouTube", style = MaterialTheme.typography.titleLarge)
+        Text(
+            "Para ver los videoclips dentro de la app, a pantalla completa y con la proporción de tu pantalla, hace falta una clave gratuita de la API de YouTube Data v3: " +
+                "Google Cloud Console → crear proyecto → habilitar «YouTube Data API v3» → Credenciales → Crear clave de API. " +
+                "Es tu clave y se guarda solo en este teléfono. Sin clave, los videoclips se buscan en el navegador interno de YouTube.",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        OutlinedTextField(
+            value = keyText, onValueChange = { keyText = it }, singleLine = true,
+            label = { Text("Clave de API de YouTube") },
+            visualTransformation = PasswordVisualTransformation(),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { vm.setYoutubeKey(keyText) }) { Text("Guardar") }
+            OutlinedButton(enabled = keyText.isNotBlank(), onClick = { vm.testYoutubeKey(keyText) }) { Text("Probar") }
+            if (savedKey != null) {
+                OutlinedButton(onClick = { vm.setYoutubeKey(null); keyText = "" }) { Text("Quitar") }
+            }
+        }
         HorizontalDivider()
 
         Text("Letras de canciones", style = MaterialTheme.typography.titleLarge)
@@ -168,6 +216,30 @@ fun SettingsScreen(vm: MainViewModel, onOpenStyles: () -> Unit, onOpenRecap: () 
             "Music Box · Reproductor de música ${vm.currentVersion}\nSin anuncios, sin rastreadores ni analíticas. La música, las playlists y los resúmenes funcionan sin conexión; " +
                 "Internet solo se usa para los videoclips (cuando tú los pides) y para buscar actualizaciones.",
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("¿Borrar los datos del resumen?") },
+            text = {
+                Text(
+                    "Se vaciarán tus resúmenes mensuales y el anual. Los archivos de música no se tocan. " +
+                        "Podrás recuperar estos datos desde Ajustes mientras no los elimines para siempre.",
+                )
+            },
+            confirmButton = { TextButton(onClick = { vm.deleteRecapData(); confirmDelete = false }) { Text("Borrar") } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancelar") } },
+        )
+    }
+    if (confirmPurge) {
+        AlertDialog(
+            onDismissRequest = { confirmPurge = false },
+            title = { Text("¿Eliminar para siempre?") },
+            text = { Text("Los datos borrados dejarán de poder recuperarse. Esta acción no se puede deshacer.") },
+            confirmButton = { TextButton(onClick = { vm.purgeRecapData(); confirmPurge = false }) { Text("Eliminar") } },
+            dismissButton = { TextButton(onClick = { confirmPurge = false }) { Text("Cancelar") } },
         )
     }
 }

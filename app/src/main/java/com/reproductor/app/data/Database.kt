@@ -1,5 +1,6 @@
 package com.reproductor.app.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
@@ -51,7 +52,13 @@ data class PlayLogEntity(
     val playedAt: Long,
     val listenedMs: Long,
     val isNewPlay: Boolean,
+    /** Borrado recuperable: true = oculto en los resúmenes pero aún se puede restaurar. */
+    @ColumnInfo(defaultValue = "0") val deleted: Boolean = false,
 )
+
+/** Caché de videoclips ya encontrados (evita gastar cuota de la API de YouTube). */
+@Entity(tableName = "clip_cache")
+data class ClipCacheEntity(@PrimaryKey val searchKey: String, val videoIds: String, val savedAt: Long)
 
 data class SongStat(val trackId: Long, val title: String, val artist: String, val album: String, val plays: Int, val ms: Long)
 data class ArtistStat(val name: String, val plays: Int, val ms: Long)
@@ -65,6 +72,16 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
                 "`playedAt` INTEGER NOT NULL, `listenedMs` INTEGER NOT NULL, `isNewPlay` INTEGER NOT NULL)",
         )
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_play_log_playedAt` ON `play_log` (`playedAt`)")
+    }
+}
+
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `play_log` ADD COLUMN `deleted` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `clip_cache` (`searchKey` TEXT NOT NULL, `videoIds` TEXT NOT NULL, " +
+                "`savedAt` INTEGER NOT NULL, PRIMARY KEY(`searchKey`))",
+        )
     }
 }
 
@@ -131,31 +148,54 @@ abstract class AppDao {
     @Insert
     abstract suspend fun insertPlay(p: PlayLogEntity)
 
-    @Query("SELECT COUNT(*) FROM play_log")
+    @Query("SELECT COUNT(*) FROM play_log WHERE deleted = 0")
     abstract fun logCount(): Flow<Int>
 
-    @Query("SELECT MIN(playedAt) FROM play_log")
+    @Query("SELECT MIN(playedAt) FROM play_log WHERE deleted = 0")
     abstract suspend fun firstPlay(): Long?
 
-    @Query("SELECT trackId, title, artist, album, SUM(isNewPlay) AS plays, SUM(listenedMs) AS ms FROM play_log WHERE playedAt >= :from AND playedAt < :to GROUP BY trackId ORDER BY plays DESC, ms DESC LIMIT :limit")
+    @Query("SELECT trackId, title, artist, album, SUM(isNewPlay) AS plays, SUM(listenedMs) AS ms FROM play_log WHERE deleted = 0 AND playedAt >= :from AND playedAt < :to GROUP BY trackId ORDER BY plays DESC, ms DESC LIMIT :limit")
     abstract suspend fun topSongs(from: Long, to: Long, limit: Int): List<SongStat>
 
-    @Query("SELECT artist AS name, SUM(isNewPlay) AS plays, SUM(listenedMs) AS ms FROM play_log WHERE playedAt >= :from AND playedAt < :to GROUP BY artist ORDER BY ms DESC LIMIT :limit")
+    @Query("SELECT artist AS name, SUM(isNewPlay) AS plays, SUM(listenedMs) AS ms FROM play_log WHERE deleted = 0 AND playedAt >= :from AND playedAt < :to GROUP BY artist ORDER BY ms DESC LIMIT :limit")
     abstract suspend fun topArtists(from: Long, to: Long, limit: Int): List<ArtistStat>
 
-    @Query("SELECT COALESCE(SUM(listenedMs), 0) AS ms, COALESCE(SUM(isNewPlay), 0) AS plays, COUNT(DISTINCT trackId) AS songs FROM play_log WHERE playedAt >= :from AND playedAt < :to")
+    @Query("SELECT COALESCE(SUM(listenedMs), 0) AS ms, COALESCE(SUM(isNewPlay), 0) AS plays, COUNT(DISTINCT trackId) AS songs FROM play_log WHERE deleted = 0 AND playedAt >= :from AND playedAt < :to")
     abstract suspend fun totals(from: Long, to: Long): Totals
 
-    @Query("SELECT CAST(strftime('%H', playedAt / 1000, 'unixepoch', 'localtime') AS INTEGER) AS h FROM play_log WHERE playedAt >= :from AND playedAt < :to GROUP BY h ORDER BY SUM(listenedMs) DESC LIMIT 1")
+    @Query("SELECT CAST(strftime('%H', playedAt / 1000, 'unixepoch', 'localtime') AS INTEGER) AS h FROM play_log WHERE deleted = 0 AND playedAt >= :from AND playedAt < :to GROUP BY h ORDER BY SUM(listenedMs) DESC LIMIT 1")
     abstract suspend fun peakHour(from: Long, to: Long): Int?
 
-    @Query("SELECT DISTINCT strftime('%Y-%m', playedAt / 1000, 'unixepoch', 'localtime') FROM play_log ORDER BY 1 DESC")
+    @Query("SELECT DISTINCT strftime('%Y-%m', playedAt / 1000, 'unixepoch', 'localtime') FROM play_log WHERE deleted = 0 ORDER BY 1 DESC")
     abstract suspend fun months(): List<String>
+
+    // ---------- Borrar / recuperar datos del resumen ----------
+    @Query("UPDATE play_log SET deleted = 1 WHERE deleted = 0")
+    abstract suspend fun softDeleteAll(): Int
+
+    @Query("UPDATE play_log SET deleted = 0 WHERE deleted = 1")
+    abstract suspend fun restoreAll(): Int
+
+    @Query("DELETE FROM play_log WHERE deleted = 1")
+    abstract suspend fun purgeDeleted(): Int
+
+    @Query("SELECT COUNT(*) FROM play_log WHERE deleted = 1")
+    abstract fun deletedCount(): Flow<Int>
+
+    // ---------- Caché de videoclips ----------
+    @Query("SELECT videoIds FROM clip_cache WHERE searchKey = :key")
+    abstract suspend fun cachedClip(key: String): String?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun saveClip(e: ClipCacheEntity)
+
+    @Query("DELETE FROM clip_cache WHERE searchKey = :key")
+    abstract suspend fun forgetClip(key: String)
 }
 
 @Database(
-    entities = [PlaylistEntity::class, PlaylistTrackEntity::class, HiddenTrackEntity::class, RecentEntity::class, PlayLogEntity::class],
-    version = 2,
+    entities = [PlaylistEntity::class, PlaylistTrackEntity::class, HiddenTrackEntity::class, RecentEntity::class, PlayLogEntity::class, ClipCacheEntity::class],
+    version = 3,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {

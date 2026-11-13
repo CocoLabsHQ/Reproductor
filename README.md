@@ -65,7 +65,8 @@
 ### 📊 Resumen de música
 - Resumen mensual de lo que escuchas: minutos, reproducciones, canciones y artistas favoritos.
 - Tras **un año de registro**, un resumen anual con diapositivas animadas al estilo "Wrapped".
-- Videoclips de tus canciones favoritas dentro de la app (solo cuando tú los pides; usa Internet).
+- Videoclips de tus canciones favoritas incrustados con el reproductor de YouTube, a pantalla completa y ajustados a la proporción de tu pantalla (19:9, 19.5:9, 20:9…). Solo cuando tú los pides; usa Internet y una clave gratuita de la API de YouTube que pones en Ajustes.
+- Borra los datos del resumen desde Ajustes y recupéralos después si quieres.
 - El registro se guarda solo en tu teléfono.
 
 ### 🔄 Actualizaciones
