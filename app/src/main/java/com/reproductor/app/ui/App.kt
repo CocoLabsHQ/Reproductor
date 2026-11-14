@@ -1,5 +1,6 @@
 package com.reproductor.app.ui
 
+import androidx.compose.foundation.layout.Row
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -129,6 +130,7 @@ fun App(vm: MainViewModel) {
             enqueue = { vm.enqueue(it) },
             addToPlaylist = { vm.tracksForPlaylistDialog = listOf(it) },
             hide = { vm.tracksToHide = listOf(it) },
+            edit = { vm.trackToEdit = it },
         )
     }
     val nav = rememberNavController()
@@ -258,6 +260,7 @@ fun App(vm: MainViewModel) {
         AddToPlaylistDialog(vm)
         HideTrackDialog(vm)
         UpdateDialog(vm)
+        EditTrackDialog(vm)
         WhatsNewDialog(vm)
         CrashDialog(vm)
         PlaybackErrorDialog(vm)
@@ -448,5 +451,40 @@ private fun PlaybackErrorDialog(vm: MainViewModel) {
             }) { Text("Reportar") }
         },
         dismissButton = { TextButton(onClick = { vm.errorPrompt = null }) { Text("Cerrar") } },
+    )
+}
+
+@Composable
+private fun EditTrackDialog(vm: MainViewModel) {
+    val t = vm.trackToEdit ?: return
+    var artist by remember(t.id) { mutableStateOf(t.artist) }
+    var title by remember(t.id) { mutableStateOf(t.title) }
+    var genre by remember(t.id) { mutableStateOf(t.genre.orEmpty()) }
+    AlertDialog(
+        onDismissRequest = { vm.trackToEdit = null },
+        title = { Text("Editar información") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(value = artist, onValueChange = { artist = it }, singleLine = true, label = { Text("Autor") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = title, onValueChange = { title = it }, singleLine = true, label = { Text("Título") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = genre, onValueChange = { genre = it }, singleLine = true, label = { Text("Género") }, modifier = Modifier.fillMaxWidth())
+                Text(
+                    "Solo cambia cómo se muestra en Music Box; el archivo no se modifica.",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = artist.isNotBlank() && title.isNotBlank(),
+                onClick = { vm.saveTrackInfo(t, artist, title, genre); vm.trackToEdit = null },
+            ) { Text("Guardar") }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = { vm.resetTrackInfo(t); vm.trackToEdit = null }) { Text("Restaurar") }
+                TextButton(onClick = { vm.trackToEdit = null }) { Text("Cancelar") }
+            }
+        },
     )
 }

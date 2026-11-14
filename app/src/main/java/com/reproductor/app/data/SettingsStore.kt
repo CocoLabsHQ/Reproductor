@@ -35,6 +35,7 @@ class SettingsStore(context: Context) {
     private val hideWaKey = booleanPreferencesKey("hide_whatsapp")
     private val autoUpdateKey = booleanPreferencesKey("auto_update")
     private val lastSeenKey = stringPreferencesKey("last_seen_version")
+    private val smartNamesKey = booleanPreferencesKey("smart_names")
     private val youtubeKeyKey = stringPreferencesKey("youtube_api_key")
 
     /** 0 = sistema, 1 = claro, 2 = oscuro (solo afecta al tema Clásico) */
@@ -53,6 +54,7 @@ class SettingsStore(context: Context) {
     val hideWhatsApp: Flow<Boolean> = ds.data.map { it[hideWaKey] ?: false }
     val autoUpdate: Flow<Boolean> = ds.data.map { it[autoUpdateKey] ?: true }
     val lastSeenVersion: Flow<String?> = ds.data.map { it[lastSeenKey] }
+    val smartNames: Flow<Boolean> = ds.data.map { it[smartNamesKey] ?: true }
     val youtubeKey: Flow<String?> = ds.data.map { it[youtubeKeyKey] }
 
     suspend fun setThemeMode(mode: Int) { ds.edit { it[themeKey] = mode } }
@@ -72,4 +74,5 @@ class SettingsStore(context: Context) {
     suspend fun setYoutubeKey(key: String?) {
         ds.edit { if (key == null) it.remove(youtubeKeyKey) else it[youtubeKeyKey] = key }
     }
+    suspend fun setSmartNames(v: Boolean) { ds.edit { it[smartNamesKey] = v } }
 }

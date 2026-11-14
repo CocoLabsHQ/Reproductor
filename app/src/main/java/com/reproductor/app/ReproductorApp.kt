@@ -13,6 +13,8 @@ import com.reproductor.app.data.ErrorReporter
 import com.reproductor.app.data.ClipResolver
 import com.reproductor.app.data.MIGRATION_1_2
 import com.reproductor.app.data.MIGRATION_2_3
+import com.reproductor.app.data.MIGRATION_3_4
+import com.reproductor.app.data.MusicBrainzClient
 import com.reproductor.app.data.PlayLogEntity
 import com.reproductor.app.data.UpdateManager
 import com.reproductor.app.data.LibraryRepository
@@ -31,11 +33,12 @@ class AppContainer(context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     val db: AppDatabase = Room.databaseBuilder(appContext, AppDatabase::class.java, "reproductor.db")
-        .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
         .build()
     val dao = db.dao()
     val settings = SettingsStore(appContext)
     val clips = ClipResolver(appContext, dao)
+    val musicBrainz = MusicBrainzClient()
     val library = LibraryRepository(appContext)
     val lyrics = LyricsRepository(appContext)
     val player = PlayerController(appContext)

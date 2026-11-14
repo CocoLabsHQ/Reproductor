@@ -98,6 +98,7 @@ class TrackActions(
     val enqueue: (Track) -> Unit,
     val addToPlaylist: (Track) -> Unit,
     val hide: (Track) -> Unit,
+    val edit: (Track) -> Unit,
 )
 
 val LocalTrackActions = staticCompositionLocalOf<TrackActions> { error("TrackActions no proporcionado") }
@@ -210,6 +211,7 @@ fun TrackRow(
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 DropdownMenuItem(text = { Text("Reproducir a continuación") }, onClick = { menu = false; actions.playNext(track) })
                 DropdownMenuItem(text = { Text("Añadir a la cola") }, onClick = { menu = false; actions.enqueue(track) })
+                DropdownMenuItem(text = { Text("Editar información") }, onClick = { menu = false; actions.edit(track) })
                 DropdownMenuItem(text = { Text("Añadir a una playlist") }, onClick = { menu = false; actions.addToPlaylist(track) })
                 extraMenu.forEach { (label, action) ->
                     DropdownMenuItem(text = { Text(label) }, onClick = { menu = false; action() })

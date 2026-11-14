@@ -5,6 +5,8 @@ import android.net.Uri
 import android.provider.MediaStore
 import java.text.Normalizer
 
+const val UNKNOWN_ARTIST = "Artista desconocido"
+
 private val diacritics = Regex("\\p{Mn}+")
 private val waFileName = Regex("^(AUD|PTT|VN)-\\d{8}-WA\\d+", RegexOption.IGNORE_CASE)
 

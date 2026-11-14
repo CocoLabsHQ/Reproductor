@@ -1,3 +1,4 @@
-• Ajustes → Resumen de música: ahora puedes borrar los datos del resumen y recuperarlos después (o eliminarlos para siempre).
-• Videoclips incrustados con el reproductor de YouTube, a pantalla completa y ajustados a la proporción de tu pantalla (19:9, 19.5:9, 20:9…). Botón "Ajustar/Llenar" para elegir si se recorta o se ve entero.
-• Para los videoclips incrustados hay que añadir una clave gratuita de la API de YouTube en Ajustes → Videoclips de YouTube. Sin clave, se sigue usando el buscador de YouTube dentro de la app.
+• Detección automática de autor y título: si un archivo no trae autor y se llama «Autor — Título», Music Box los separa y los clasifica (autores, géneros, búsqueda).
+• Decide qué lado es el autor usando tu propia biblioteca; sin pistas asume «Autor — Título».
+• Ajustes → Autores y géneros: «Identificar con Internet» confirma el autor y trae el género desde MusicBrainz (opcional, se puede revertir).
+• Nuevo «Editar información» en el menú ⋮ de cada canción para corregir autor, título y género. No modifica tus archivos.

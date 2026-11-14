@@ -1,5 +1,7 @@
 package com.reproductor.app.ui.screens
 
+import androidx.compose.material3.LinearProgressIndicator
+import com.reproductor.app.data.EnrichUi
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
@@ -64,6 +66,11 @@ fun SettingsScreen(vm: MainViewModel, onOpenStyles: () -> Unit, onOpenRecap: () 
     val savedKey by vm.youtubeKey.collectAsStateWithLifecycle()
     var keyText by remember(savedKey) { mutableStateOf(savedKey.orEmpty()) }
     var confirmDelete by remember { mutableStateOf(false) }
+    val smartNames by vm.smartNames.collectAsStateWithLifecycle()
+    val localCount by vm.localDetectedCount.collectAsStateWithLifecycle()
+    val onlineCount by vm.onlineOverrideCount.collectAsStateWithLifecycle()
+    val enrich = vm.enrichUi
+    var confirmOnline by remember { mutableStateOf(false) }
     var confirmPurge by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
 
@@ -110,6 +117,50 @@ fun SettingsScreen(vm: MainViewModel, onOpenStyles: () -> Unit, onOpenRecap: () 
         }
         Text(
             "Quitar una canción de la biblioteca solo la oculta en esta app: el archivo nunca se borra del dispositivo.",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        HorizontalDivider()
+
+        Text("Autores y géneros", style = MaterialTheme.typography.titleLarge)
+        SwitchRow(
+            title = "Detectar autor y título por el nombre",
+            description = "Si un archivo no trae autor, se separa «Autor — Título» del nombre. Se decide qué lado es el autor con lo que hay en tu biblioteca; sin pistas se asume «Autor — Título». No modifica tus archivos." +
+                if (localCount > 0) " Detectados ahora: $localCount." else "",
+            checked = smartNames,
+            onChange = { vm.setSmartNames(it) },
+        )
+        when (enrich) {
+            is EnrichUi.Running -> {
+                LinearProgressIndicator(
+                    progress = { if (enrich.total > 0) enrich.done / enrich.total.toFloat() else 0f },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    "Identificando… ${enrich.done} de ${enrich.total} · ${enrich.found} encontradas. Deja la app abierta.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                OutlinedButton(onClick = { vm.cancelOnlineIdentify() }) { Text("Cancelar") }
+            }
+            else -> {
+                when (enrich) {
+                    is EnrichUi.Done -> Text(
+                        if (enrich.total == 0) "No hay canciones nuevas por identificar."
+                        else "Listo: ${enrich.found} de ${enrich.total} identificadas. Las demás conservan la detección por nombre.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    is EnrichUi.Error -> Text(enrich.message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                    else -> Unit
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { confirmOnline = true }) { Text("Identificar con Internet") }
+                    if (onlineCount > 0) {
+                        OutlinedButton(onClick = { vm.revertOnlineIdentify() }) { Text("Revertir ($onlineCount)") }
+                    }
+                }
+            }
+        }
+        Text(
+            "La identificación consulta MusicBrainz (base de datos musical abierta) para confirmar el autor y traer el género. Si una canción queda mal, usa «Editar información» en su menú ⋮.",
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         HorizontalDivider()
@@ -219,6 +270,20 @@ fun SettingsScreen(vm: MainViewModel, onOpenStyles: () -> Unit, onOpenRecap: () 
         )
     }
 
+    if (confirmOnline) {
+        AlertDialog(
+            onDismissRequest = { confirmOnline = false },
+            title = { Text("Identificar con Internet") },
+            text = {
+                Text(
+                    "Se enviarán a musicbrainz.org solo los textos de autor y título de las canciones sin autor (una consulta por segundo). " +
+                        "Puede tardar varios minutos y la app debe seguir abierta. Puedes revertirlo después.",
+                )
+            },
+            confirmButton = { TextButton(onClick = { confirmOnline = false; vm.startOnlineIdentify() }) { Text("Empezar") } },
+            dismissButton = { TextButton(onClick = { confirmOnline = false }) { Text("Cancelar") } },
+        )
+    }
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },

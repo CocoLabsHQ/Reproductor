@@ -56,6 +56,17 @@ data class PlayLogEntity(
     @ColumnInfo(defaultValue = "0") val deleted: Boolean = false,
 )
 
+/** Autor/título/género corregidos (a mano o por Internet). Nunca se modifica el archivo original. */
+@Entity(tableName = "track_override")
+data class TrackOverrideEntity(
+    @PrimaryKey val trackId: Long,
+    val artist: String,
+    val title: String,
+    val genre: String?,
+    val source: String, // "manual" | "online"
+    val verified: Boolean,
+)
+
 /** Caché de videoclips ya encontrados (evita gastar cuota de la API de YouTube). */
 @Entity(tableName = "clip_cache")
 data class ClipCacheEntity(@PrimaryKey val searchKey: String, val videoIds: String, val savedAt: Long)
@@ -81,6 +92,15 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
         db.execSQL(
             "CREATE TABLE IF NOT EXISTS `clip_cache` (`searchKey` TEXT NOT NULL, `videoIds` TEXT NOT NULL, " +
                 "`savedAt` INTEGER NOT NULL, PRIMARY KEY(`searchKey`))",
+        )
+    }
+}
+
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `track_override` (`trackId` INTEGER NOT NULL, `artist` TEXT NOT NULL, " +
+                "`title` TEXT NOT NULL, `genre` TEXT, `source` TEXT NOT NULL, `verified` INTEGER NOT NULL, PRIMARY KEY(`trackId`))",
         )
     }
 }
@@ -182,6 +202,19 @@ abstract class AppDao {
     @Query("SELECT COUNT(*) FROM play_log WHERE deleted = 1")
     abstract fun deletedCount(): Flow<Int>
 
+    // ---------- Correcciones de autor / título / género ----------
+    @Query("SELECT * FROM track_override")
+    abstract fun overrides(): Flow<List<TrackOverrideEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun putOverrides(items: List<TrackOverrideEntity>)
+
+    @Query("DELETE FROM track_override WHERE source != 'manual'")
+    abstract suspend fun clearOnlineOverrides(): Int
+
+    @Query("DELETE FROM track_override WHERE trackId = :id")
+    abstract suspend fun deleteOverride(id: Long)
+
     // ---------- Caché de videoclips ----------
     @Query("SELECT videoIds FROM clip_cache WHERE searchKey = :key")
     abstract suspend fun cachedClip(key: String): String?
@@ -194,8 +227,8 @@ abstract class AppDao {
 }
 
 @Database(
-    entities = [PlaylistEntity::class, PlaylistTrackEntity::class, HiddenTrackEntity::class, RecentEntity::class, PlayLogEntity::class, ClipCacheEntity::class],
-    version = 3,
+    entities = [PlaylistEntity::class, PlaylistTrackEntity::class, HiddenTrackEntity::class, RecentEntity::class, PlayLogEntity::class, ClipCacheEntity::class, TrackOverrideEntity::class],
+    version = 4,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {

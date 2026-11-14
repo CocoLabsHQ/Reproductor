@@ -1,5 +1,13 @@
 package com.reproductor.app.ui
 
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
+import com.reproductor.app.domain.TitleParser
+import com.reproductor.app.domain.Enriched
+import com.reproductor.app.data.TrackOverrideEntity
+import com.reproductor.app.data.Identified
+import com.reproductor.app.data.EnrichUi
 import android.app.Application
 import android.content.Intent
 import android.graphics.Bitmap
@@ -75,8 +83,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         c.library.tracks.map { l -> l.count { it.isWhatsApp } }.flowOn(Dispatchers.Default)
             .stateIn(viewModelScope, eager, 0)
 
+    // Autor / título / género: detección local + correcciones guardadas (manuales o por Internet)
+    val smartNames: StateFlow<Boolean> = c.settings.smartNames.stateIn(viewModelScope, eager, true)
+    val enriched: StateFlow<Enriched> =
+        combine(c.library.tracks, smartNames, c.dao.overrides()) { tracks, smart, ov ->
+            TitleParser.enrich(tracks, smart, ov)
+        }.flowOn(Dispatchers.Default).stateIn(viewModelScope, eager, Enriched(emptyList(), 0))
+    val localDetectedCount: StateFlow<Int> = enriched.map { it.local }.stateIn(viewModelScope, eager, 0)
+    val onlineOverrideCount: StateFlow<Int> =
+        c.dao.overrides().map { l -> l.count { it.source != "manual" } }.stateIn(viewModelScope, eager, 0)
+
     val allTracks: StateFlow<List<Track>> =
-        combine(c.library.tracks, c.dao.hiddenIds(), hideWhatsApp) { tracks, hidden, hideWa ->
+        combine(enriched, c.dao.hiddenIds(), hideWhatsApp) { e, hidden, hideWa ->
+            val tracks = e.tracks
             val h = hidden.toHashSet()
             if (h.isEmpty() && !hideWa) tracks
             else tracks.filter { it.id !in h && !(hideWa && it.isWhatsApp) }
@@ -367,6 +386,76 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             if (errorPrompt == null) errorPrompt = lastError.value
         }
     }
+
+    // ---------- Identificar autores y géneros ----------
+    fun setSmartNames(v: Boolean) { viewModelScope.launch { c.settings.setSmartNames(v) } }
+
+    var enrichUi by mutableStateOf<EnrichUi>(EnrichUi.Idle)
+    private var enrichJob: Job? = null
+    var trackToEdit by mutableStateOf<Track?>(null)
+
+    /** Consulta MusicBrainz (1 consulta por segundo) para confirmar autores y traer géneros. */
+    fun startOnlineIdentify() {
+        if (enrichJob?.isActive == true) return
+        enrichJob = viewModelScope.launch(Dispatchers.IO) {
+            val stored = c.dao.overrides().first().map { it.trackId }.toHashSet()
+            val raw = c.library.tracks.value
+            val cands = TitleParser.candidates(raw).filter { it.trackId !in stored }
+            if (cands.isEmpty()) {
+                enrichUi = EnrichUi.Done(0, 0)
+                return@launch
+            }
+            val parsed = TitleParser.decide(cands, TitleParser.knownArtists(raw))
+            val genreCache = HashMap<String, String?>()
+            var found = 0
+            var failures = 0
+            for ((i, cd) in cands.withIndex()) {
+                ensureActive()
+                enrichUi = EnrichUi.Running(i, cands.size, found)
+                val p = parsed[cd.trackId] ?: continue
+                val res: Identified? = try {
+                    c.musicBrainz.identify(cd.first, cd.second, p.firstIsArtist, genreCache)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    failures++
+                    if (failures >= 3) {
+                        enrichUi = EnrichUi.Error("Sin conexión o MusicBrainz no responde. Inténtalo más tarde.")
+                        return@launch
+                    }
+                    continue
+                }
+                failures = 0
+                if (res != null) {
+                    c.dao.putOverrides(listOf(TrackOverrideEntity(cd.trackId, res.artist, res.title, res.genre, "online", true)))
+                    found++
+                }
+            }
+            enrichUi = EnrichUi.Done(cands.size, found)
+        }
+    }
+
+    fun cancelOnlineIdentify() {
+        enrichJob?.cancel()
+        enrichUi = EnrichUi.Idle
+    }
+
+    fun revertOnlineIdentify() {
+        viewModelScope.launch {
+            val n = c.dao.clearOnlineOverrides()
+            toast("Se revirtieron $n canciones")
+        }
+    }
+
+    fun saveTrackInfo(track: Track, artist: String, title: String, genre: String) {
+        viewModelScope.launch {
+            c.dao.putOverrides(
+                listOf(TrackOverrideEntity(track.id, artist.trim(), title.trim(), genre.trim().ifBlank { null }, "manual", true)),
+            )
+        }
+    }
+
+    fun resetTrackInfo(track: Track) { viewModelScope.launch { c.dao.deleteOverride(track.id) } }
 
     // ---------- Estado de navegación ----------
     var playerOpen by mutableStateOf(false)
